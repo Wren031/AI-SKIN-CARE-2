@@ -42,20 +42,15 @@ export default function CameraScreen() {
   const { setTabBarVisible } = useTabVisibility();
   const router = useRouter();
 
-  // --- TAB BAR VISIBILITY LOGIC ---
   useFocusEffect(
     useCallback(() => {
-      // Hide tab bar when entering camera
       setTabBarVisible(false);
-      
       return () => {
-        // Show tab bar when leaving camera
         setTabBarVisible(true);
       };
     }, [setTabBarVisible])
   );
 
-  // SCAN LINE ANIMATION
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   
   useEffect(() => {
@@ -77,7 +72,6 @@ export default function CameraScreen() {
     if (isProcessing || !isAligned) return;
     setIsProcessing(true);
     
-    // Simulate API Analysis Delay
     setTimeout(() => {
         setIsProcessing(false);
         router.push('/result-scan'); 

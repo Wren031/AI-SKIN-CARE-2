@@ -1,6 +1,8 @@
+import { THEME } from '@/src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,18 +18,60 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 
-// Consistent Skincare Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#3A4D39';
+// Theme Constants
+const SAGE = THEME.SAGE;
+const SAND = THEME.SAND;
+const DEEP_SAGE = THEME.DEEP_SAGE;
+
+// Secure Storage Key
+const SECURE_AUTH_KEY = 'user_credentials_oasis';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, signInWithGoogle, loading } = useAuth();
 
+  // States
   const [form, setForm] = useState({ email: '', password: '' });
+  const [rememberMe, setRememberMe] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // --- Persistence Logic ---
+
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedData = await SecureStore.getItemAsync(SECURE_AUTH_KEY);
+      if (savedData) {
+        const { email, password } = JSON.parse(savedData);
+        setForm({ email, password });
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error("Failed to load credentials:", error);
+    }
+  };
+
+  const saveCredentials = async () => {
+    try {
+      if (rememberMe) {
+        const data = JSON.stringify({ 
+          email: form.email.trim(), 
+          password: form.password 
+        });
+        await SecureStore.setItemAsync(SECURE_AUTH_KEY, data);
+      } else {
+        await SecureStore.deleteItemAsync(SECURE_AUTH_KEY);
+      }
+    } catch (error) {
+      console.error("Failed to update secure storage:", error);
+    }
+  };
+
+  // --- Handlers ---
 
   const updateForm = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -38,9 +82,20 @@ export default function LoginScreen() {
       Alert.alert('Welcome Back', 'Please enter your details to continue your routine.');
       return;
     }
+
     try {
-      const success = await login({ email: form.email.trim(), password: form.password });
-      if (success) router.replace('/home');
+      // 1. Save or Clear credentials based on Remember Me toggle
+      await saveCredentials();
+
+      // 2. Perform Login
+      const success = await login({ 
+        email: form.email.trim(), 
+        password: form.password 
+      });
+      
+      if (success) {
+        router.replace('/home');
+      }
     } catch (error) {
       Alert.alert('Error', 'We couldn’t find your profile. Please check your credentials.');
     }
@@ -71,7 +126,7 @@ export default function LoginScreen() {
             <View style={[styles.inputGroup, focusedField === 'email' && styles.inputFocused]}>
               <Ionicons name="mail-outline" size={20} color={focusedField === 'email' ? SAGE : '#94A3B8'} />
               <TextInput
-                placeholder="yourname@glow.com"
+                placeholder="yourname@gmail.com"
                 placeholderTextColor="#94A3B8"
                 style={styles.input}
                 value={form.email}
@@ -79,6 +134,7 @@ export default function LoginScreen() {
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
+                keyboardType="email-address"
                 editable={!loading}
               />
             </View>
@@ -99,14 +155,35 @@ export default function LoginScreen() {
                 editable={!loading}
               />
               <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-                <Ionicons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
+                <Ionicons 
+                  name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
+                  size={20} 
+                  color="#94A3B8" 
+                />
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.forgotBtn}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            {/* Remember Me & Forgot Password */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity 
+                style={styles.rememberMeContainer} 
+                onPress={() => setRememberMe(!rememberMe)}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={rememberMe ? "checkbox" : "square-outline"} 
+                  size={22} 
+                  color={rememberMe ? SAGE : '#94A3B8'} 
+                />
+                <Text style={styles.rememberMeText}>Remember me</Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Login Button */}
             <TouchableOpacity 
               style={[styles.loginBtn, loading && styles.disabledBtn]} 
               onPress={handleLogin}
@@ -120,6 +197,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.line} />
             <Text style={styles.orText}>OR CONTINUE WITH</Text>
@@ -177,11 +255,24 @@ const styles = StyleSheet.create({
   inputFocused: { borderColor: SAGE, backgroundColor: '#FFF' },
   input: { flex: 1, marginLeft: 12, fontSize: 16, color: DEEP_SAGE, fontWeight: '500' },
   
-  forgotBtn: { alignSelf: 'flex-end', marginBottom: 20 },
+  actionRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 24, 
+    paddingHorizontal: 4 
+  },
+  rememberMeContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 8 
+  },
+  rememberMeText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
+  forgotBtn: { },
   forgotText: { color: SAGE, fontWeight: '700', fontSize: 13 },
 
   loginBtn: { 
-    backgroundColor: SAGE, height: 64, borderRadius: 32, 
+    backgroundColor: SAGE, height: 64, borderRadius: 20, 
     justifyContent: 'center', alignItems: 'center',
     shadowColor: SAGE, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15,
     elevation: 4

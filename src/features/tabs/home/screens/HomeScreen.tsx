@@ -31,21 +31,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Internal Components
+import { THEME } from '@/src/constants/theme';
 import ImageAnalysisOverlay from '../components/ImageAnalysisOverlay';
 import Notification from '../components/Notification';
-
 const { width } = Dimensions.get('window');
 
-const THEME = {
-  primary: '#2C362B',   // Deep Forest
-  accent: '#8FA08E',    // Oasis Sage
-  highlight: '#E67E6E',  // Soft Coral
-  background: '#F8F9F8', // Medical Off-white
-  surface: '#FFFFFF',
-  textMain: '#1A1D1A',
-  textSub: '#6B7280',
-  border: '#F1F3F1',
-};
+
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -75,17 +66,13 @@ export default function HomeScreen() {
     router.push('/camera-scan');
   };
 
-const handleGalleryNavigation = () => {
-  // 1. Immediately close the modal overlay
-  setShowOptions(false);
+  const handleGalleryNavigation = () => {
+    setShowOptions(false);
 
-  // 2. Navigate to the upload screen
-  // We use a tiny delay (100ms) to let the modal animation finish 
-  // for a smoother visual transition.
-  setTimeout(() => {
-    router.push('/upload-image');
-  }, 100);
-};
+    setTimeout(() => {
+      router.push('/upload-image');
+    }, 100);
+  };
 
 
   const startAnalysisFlow = (uri: string) => {

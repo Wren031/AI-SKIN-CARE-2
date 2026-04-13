@@ -7,10 +7,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <TabVisibilityProvider>
         <Stack screenOptions={{ headerShown: false }}>
-
+                    <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="index" />
-
         </Stack>  
       </TabVisibilityProvider>
     </SafeAreaProvider>

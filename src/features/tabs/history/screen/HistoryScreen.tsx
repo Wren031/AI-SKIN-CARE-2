@@ -1,13 +1,16 @@
+import { THEME } from '@/src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Oasis Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#3A4D39';
-const SOFT_CORAL = '#E67E6E';
+const SAGE = THEME.SAGE;
+const SAND = THEME.SAND;
+const DEEP_SAGE = THEME.DEEP_SAGE;
+const SOFT_CORAL = THEME.SOFT_CORAL;
 const MIST = '#F0F4F0';
+
+
 
 export default function HistoryScreen() {
   return (

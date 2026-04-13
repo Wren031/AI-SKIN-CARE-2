@@ -1,3 +1,4 @@
+import { THEME } from '@/src/constants/theme';
 import { useAuth } from '@/src/features/auth/hooks/useAuth';
 import { useProfileData } from '@/src/features/auth/hooks/useProfileData';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +21,10 @@ import {
 import SettingItem from '../components/SettingItem';
 
 // Skincare Oasis Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#2C362B';
-const SOFT_CORAL = '#E67E6E'; // For destructive actions like Sign Out
+const SAGE = THEME.accent;
+const SAND = THEME.background;
+const DEEP_SAGE = THEME.primary;
+
 
 interface SettingData {
   id: string;
@@ -125,7 +126,7 @@ export default function SettingsScreen() {
     );
   }
 
-  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Skin Enthusiast';
+  const fullName = [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(' ') || 'Skin Enthusiast';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -206,7 +207,7 @@ export default function SettingsScreen() {
                   onPress={handleSignOut}
                 >
                   <View style={styles.logoutIconContainer}>
-                    <Ionicons name="log-out-outline" size={20} color={SOFT_CORAL} />
+                    <Ionicons name="log-out-outline" size={20} color={THEME.highlight} />
                   </View>
                   <Text style={styles.logoutText}>End Session</Text>
                   <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 12, backgroundColor: '#FFF5F4',
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  logoutText: { flex: 1, fontSize: 16, fontWeight: '600', color: SOFT_CORAL },
+  logoutText: { flex: 1, fontSize: 16, fontWeight: '600', color: THEME.highlight },
   
   versionText: { 
     textAlign: 'center', color: '#cbd5e1', fontSize: 10, 

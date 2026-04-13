@@ -1,3 +1,4 @@
+import { THEME } from '@/src/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -17,9 +18,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 
 // Consistent Skincare Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#3A4D39';
+const SAGE = THEME.SAGE;
+const SAND = THEME.SAND;
+const DEEP_SAGE = THEME.DEEP_SAGE;
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -89,7 +90,7 @@ export default function SignUpScreen() {
                 color={focusedField === 'email' ? SAGE : '#94A3B8'} 
               />
               <TextInput
-                placeholder="hello@glow.com"
+                placeholder="hello@gmail.com"
                 placeholderTextColor="#94A3B8"
                 style={styles.input}
                 value={form.email}
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, marginLeft: 12, fontSize: 16, color: DEEP_SAGE, fontWeight: '500' },
   
   primaryButton: { 
-    backgroundColor: SAGE, height: 64, borderRadius: 32, 
+    backgroundColor: SAGE, height: 64, borderRadius: 20, 
     justifyContent: 'center', alignItems: 'center', marginTop: 10,
     shadowColor: SAGE, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15,
     elevation: 4

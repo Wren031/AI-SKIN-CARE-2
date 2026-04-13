@@ -38,7 +38,7 @@ useEffect(() => {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Oasis',
+          title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "leaf" : "leaf-outline"} size={22} color={color} />
           ),
