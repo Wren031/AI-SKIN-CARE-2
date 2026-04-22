@@ -1,141 +1,205 @@
+import { THEMES } from '@/src/constants/themes';
 import { useTabVisibility } from '@/src/context/TabVisibilityContext';
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Oasis Palette
-const SAGE = '#2C362B';
-const DEEP_SAGE = '#3A4D39';
-const INACTIVE = '#CBD5E1';
+const theme = THEMES.DERMA_AI;
+const { COLORS, RADIUS } = theme;
+
+// Wellness-inspired colors if not in your theme
+const SOFT_ROSE = '#FB7185';
+const SOFT_SAGE = '#F0FDF4';
 
 export default function TabLayout() {
   const { isTabBarVisible } = useTabVisibility();
   const offsetAnim = useRef(new Animated.Value(0)).current;
+  const router = useRouter();
 
-useEffect(() => {
-    Animated.timing(offsetAnim, {
+  useEffect(() => {
+    Animated.spring(offsetAnim, {
       toValue: isTabBarVisible ? 0 : 150,
-      duration: 300,
+      friction: 8,
+      tension: 50,
       useNativeDriver: true,
     }).start();
   }, [isTabBarVisible]);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: SAGE,
-        tabBarInactiveTintColor: INACTIVE,
-        // ADD THIS: This is the magic line that stops the loop
-        tabBarStyle: {
-          ...styles.tabBar,
-          display: isTabBarVisible ? 'flex' : 'none', // Toggle display based on state
-          transform: [{ translateY: offsetAnim }],
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "leaf" : "leaf-outline"} size={22} color={color} />
-          ),
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: SOFT_ROSE, // Warm, healthy glow color
+          tabBarInactiveTintColor: '#94A3B8',
+          tabBarLabelStyle: styles.labelStyle,
+          tabBarStyle: [
+            styles.tabBar,
+            {
+              transform: [{ translateY: offsetAnim }],
+              opacity: isTabBarVisible ? 1 : 0,
+            },
+          ],
         }}
-      />
+      >
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: 'Today', // More personal than "Home"
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? "leaf" : "leaf-outline"} size={22} color={color} />
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: 'Journey',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "analytics" : "analytics-outline"} size={22} color={color} />
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="progress"
+          options={{
+            title: 'Journey', // Skincare is a process/journey
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? "sparkles" : "sparkles-outline"} size={22} color={color} />
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="camera-scan"
-        options={{
-          title: '',
-          tabBarButton: isTabBarVisible ? undefined : () => null, 
-          tabBarIcon: () => (
-            <View style={styles.scanButton}>
-              <View style={styles.iconRotate}>
-                <Ionicons name="scan" size={28} color="white" />
+        {/* Floating Glow Scan Button */}
+        <Tabs.Screen
+          name="camera-scan"
+          options={{
+            title: '',
+            tabBarIcon: () => (
+              <View style={styles.scanButtonContainer}>
+                <View style={styles.scanButton}>
+                  <Ionicons name="camera" size={28} color={COLORS.WHITE} />
+                </View>
               </View>
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="history"
+          options={{
+            title: 'Diary', // Personal history/logging
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+
+      {/* Floating AI Assistant - Softened and Rounded */}
+      {isTabBarVisible && (
+        <Animated.View 
+          style={[
+            styles.floatingChatWrapper, 
+            { transform: [{ translateY: offsetAnim }] }
+          ]}
+        >
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            style={styles.chatFab}
+            onPress={() => router.push('/chat-boot')}
+          >
+            <View style={styles.aiIconCircle}>
+                <Ionicons name="chatbubble-ellipses" size={16} color={SOFT_ROSE} />
             </View>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Archive',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "book" : "book-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+            <Text style={styles.chatFabText}>Ask Beauty AI</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    height: Platform.OS === 'ios' ? 95 : 80, 
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
-    paddingTop: 12,
-    shadowColor: DEEP_SAGE,
-    shadowOffset: { width: 0, height: -4 },
+
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 30, // Very rounded for wellness vibe
+    borderTopWidth: 0,
+    height: 90,
+    paddingBottom: Platform.OS === 'ios' ? 5 : 10,
+    paddingTop: 10,
+    // Soft organic shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F1',
+    shadowRadius: 20,
+    elevation: 5,
   },
-  tabLabel: {
+  labelStyle: {
     fontSize: 10,
     fontWeight: '700',
+    textTransform: 'uppercase',
     letterSpacing: 0.5,
+    marginTop: -2,
+  },
+  scanButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
   },
   scanButton: {
-    width: 62,
-    height: 62,
-    backgroundColor: SAGE,
-    borderRadius: 20,
+    width: 64,
+    height: 64,
+    backgroundColor: SOFT_ROSE,
+    borderRadius: 32, // Perfect circle
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Platform.OS === 'ios' ? -40 : -55,
-    borderWidth: 4,
-    borderColor: '#fff',
-    transform: [{ rotate: '45deg' }],
-    shadowColor: SAGE,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    top: -20, // Pop out of the bar
+    borderWidth: 6,
+    borderColor: '#FFFFFF',
+    shadowColor: SOFT_ROSE,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  iconRotate: {
-    transform: [{ rotate: '-45deg' }],
+  floatingChatWrapper: {
+    position: 'absolute',
+    bottom: 110, 
+    right: 25,
+    zIndex: 1000,
+  },
+  chatFab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B', // Dark slate for clear contrast
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  aiIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatFabText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
 });

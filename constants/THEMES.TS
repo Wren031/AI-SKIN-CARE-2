@@ -1,0 +1,9 @@
+const THEME = {
+  BG: '#FCFAF7',
+  WHITE: '#FFFFFF',
+  PRIMARY: '#8FA08E',
+  TEXT_MAIN: '#2D312E',
+  TEXT_SUB: '#64748B',
+  BORDER: '#E2E8E2',
+  ACCENT: '#00FFAA',
+};

@@ -1,8 +1,8 @@
-import { THEME } from '@/src/constants/theme';
+import { THEMES } from '@/src/constants/themes';
 import { useAuth } from '@/src/features/auth/hooks/useAuth';
 import { useProfileData } from '@/src/features/auth/hooks/useProfileData';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,12 +20,10 @@ import {
 } from 'react-native';
 import SettingItem from '../components/SettingItem';
 
-// Skincare Oasis Palette
-const SAGE = THEME.accent;
-const SAND = THEME.background;
-const DEEP_SAGE = THEME.primary;
+const SKIN_THEME = THEMES.DERMA_AI;
+const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
 
-
+// --- Interfaces ---
 interface SettingData {
   id: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -42,25 +40,24 @@ interface SectionData {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
   const { profile, loading } = useProfileData();
-  const { logout, loading: authLoading } = useAuth();
+  const { logout } = useAuth();
 
   const handleSignOut = () => {
     Alert.alert(
-      "Sign Out",
-      "Are you sure you want to pause your skincare journey and log out?",
+      "End Clinical Session",
+      "Are you sure you want to sign out? Your analysis history is securely saved.",
       [
-        { text: "Stay here", style: "cancel" },
+        { text: "Stay", style: "cancel" },
         { 
-          text: "Log Out", 
+          text: "Sign Out", 
           style: "destructive", 
-          onPress: async () => {
-            await logout();
-          }
+          onPress: async () => await logout() 
         }
       ]
     );
@@ -68,41 +65,41 @@ export default function SettingsScreen() {
 
   const SETTINGS_DATA: SectionData[] = [
     {
-      section: "Your Profile",
+      section: "Clinical Identity",
       data: [
-        { id: 'personal', icon: "person-outline", title: "Personal Info", color: SAGE, type: 'arrow' },
+        { id: 'personal', icon: "person-outline", title: "Personal Information", color: COLORS.PRIMARY, type: 'arrow' },
         { 
           id: 'notif', 
           icon: "notifications-outline", 
-          title: "Routine Reminders", 
+          title: "Treatment Alerts", 
           type: "switch", 
           value: notifications, 
           onValueChange: (val: boolean) => setNotifications(val), 
-          color: SAGE 
+          color: COLORS.PRIMARY 
         },
-        { id: 'privacy', icon: "shield-checkmark-outline", title: "Privacy & Security", color: SAGE, type: 'arrow' },
+        { id: 'privacy', icon: "shield-checkmark-outline", title: "Data Protection", color: COLORS.PRIMARY, type: 'arrow' },
       ]
     },
     {
-      section: "Experience",
+      section: "System Preferences",
       data: [
-        { id: 'lang', icon: "earth-outline", title: "Language", type: "text", value: "English", color: SAGE },
+        { id: 'lang', icon: "language-outline", title: "Interface Language", type: "text", value: "English", color: COLORS.PRIMARY },
         { 
           id: 'dark', 
           icon: "moon-outline", 
-          title: "Evening Mode", 
+          title: "High Contrast Mode", 
           type: "switch", 
           value: darkMode, 
           onValueChange: (val: boolean) => setDarkMode(val), 
-          color: DEEP_SAGE 
+          color: COLORS.TEXT_PRIMARY 
         },
       ]
     },
     {
-      section: "Oasis Support",
+      section: "Support & Research",
       data: [
-        { id: 'help', icon: "help-buoy-outline", title: "Help Center", color: SAGE, type: 'arrow' },
-        { id: 'about', icon: "leaf-outline", title: "Our Philosophy", color: SAGE, type: 'arrow' },
+        { id: 'help', icon: "help-circle-outline", title: "Clinical Support", color: COLORS.PRIMARY, type: 'arrow' },
+        { id: 'about', icon: "information-circle-outline", title: "AI Methodology", color: COLORS.PRIMARY, type: 'arrow' },
       ]
     }
   ];
@@ -117,29 +114,28 @@ export default function SettingsScreen() {
     })).filter(section => section.data.length > 0);
   }, [searchQuery, notifications, darkMode]);
 
-
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={SAGE} />
-      </SafeAreaView>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      </View>
     );
   }
 
-  const fullName = [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(' ') || 'Skin Enthusiast';
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Clinical User';
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Oasis Settings</Text>
+        {/* Header - Matching Recommendation Screen Style */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>SETTINGS</Text>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#94a3b8" />
+            <Ionicons name="search" size={18} color={COLORS.TEXT_SECONDARY} />
             <TextInput
-              placeholder="Search your preferences..."
-              placeholderTextColor="#94a3b8"
+              placeholder="Search preferences..."
+              placeholderTextColor={COLORS.TEXT_SECONDARY}
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -150,26 +146,26 @@ export default function SettingsScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           
-          {/* Profile Card */}
+          {/* Profile Summary Card */}
           {!searchQuery && (
             <TouchableOpacity 
-              activeOpacity={0.8} 
+              activeOpacity={0.9} 
               style={styles.profileCard} 
               onPress={() => router.push('/setup-profile')}
             >
               <Image
-                source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${fullName}&background=8FA08E&color=fff` }}
+                source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${fullName}&background=FF7A6D&color=fff` }}
                 style={styles.avatar}
               />
               <View style={styles.profileInfo}>
                 <Text style={styles.profileName}>{fullName}</Text>
-                <Text style={styles.profileEmail}>{profile?.email || 'View skin profile'}</Text>
+                <Text style={styles.profileEmail}>{profile?.email || 'Verified Patient'}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={SAGE} />
+              <Ionicons name="chevron-forward" size={20} color={COLORS.PRIMARY} />
             </TouchableOpacity>
           )}
 
-          {/* Dynamic Sections */}
+          {/* Settings Groups */}
           {filteredSettings.map((section) => (
             <View key={section.section}>
               <Text style={styles.sectionLabel}>{section.section}</Text>
@@ -186,9 +182,8 @@ export default function SettingsScreen() {
                     isLast={index === section.data.length - 1}
                     onPress={() => {
                       if (item.id === 'personal') router.push('/personal-info');
-                      if (item.id === 'privacy') router.push('/privacy-security');
                       if (item.id === 'help') router.push('/help-center');
-                      if (item.id === 'about') router.push('/about-us');
+                      if (item.id === 'privacy') router.push('/change-password');
                     }}
                   />
                 ))}
@@ -196,27 +191,19 @@ export default function SettingsScreen() {
             </View>
           ))}
 
-          {/* Sign Out Section */}
+          {/* Logout Action */}
           {!searchQuery && (
-            <View style={{ marginTop: 10 }}>
-              <Text style={styles.sectionLabel}>Session</Text>
-              <View style={styles.group}>
-                <TouchableOpacity 
-                  style={styles.logoutRow} 
-                  activeOpacity={0.7}
-                  onPress={handleSignOut}
-                >
-                  <View style={styles.logoutIconContainer}>
-                    <Ionicons name="log-out-outline" size={20} color={THEME.highlight} />
-                  </View>
-                  <Text style={styles.logoutText}>End Session</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.versionText}>OASIS VERSION 1.0.4</Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.logoutBtn} 
+              activeOpacity={0.8}
+              onPress={handleSignOut}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+              <Text style={styles.logoutText}>TERMINATE SESSION</Text>
+            </TouchableOpacity>
           )}
+          
+          <Text style={styles.versionText}>DERMA AI SYSTEM v1.0.4 • ENCRYPTED</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -224,56 +211,81 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SAND },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerContainer: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 20 },
-  headerTitle: { fontSize: 30, fontWeight: '300', color: DEEP_SAGE, marginBottom: 16, letterSpacing: 0.5 },
+  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.BACKGROUND },
+  
+  header: { 
+    paddingHorizontal: 20, 
+    paddingTop: 10, 
+    paddingBottom: 20, 
+    backgroundColor: COLORS.WHITE,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+    ...SHADOWS.SOFT
+  },
+  headerTitle: { 
+    fontSize: 12, 
+    fontWeight: '900', 
+    color: COLORS.TEXT_PRIMARY, 
+    letterSpacing: 3, 
+    textAlign: 'center',
+    marginBottom: 15
+  },
   searchBar: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: '#fff', 
+    backgroundColor: COLORS.BACKGROUND, 
     paddingHorizontal: 15, 
-    height: 54, 
-    borderRadius: 18, 
+    height: 50, 
+    borderRadius: RADIUS.M, 
     borderWidth: 1, 
-    borderColor: '#f1f5f9',
-    shadowColor: SAGE, shadowOpacity: 0.05, shadowRadius: 10
+    borderColor: COLORS.BORDER 
   },
-  searchInput: { flex: 1, fontSize: 16, marginLeft: 10, color: DEEP_SAGE },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  searchInput: { flex: 1, fontSize: 14, marginLeft: 10, color: COLORS.TEXT_PRIMARY, fontWeight: '600' },
+  
+  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 60 },
   
   profileCard: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: '#fff', 
-    padding: 16, 
-    borderRadius: 28, 
-    marginBottom: 30,
-    shadowColor: SAGE, shadowOpacity: 0.08, shadowRadius: 15, elevation: 3
+    backgroundColor: COLORS.WHITE, 
+    padding: 20, 
+    borderRadius: RADIUS.L, 
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    ...SHADOWS.SOFT
   },
-  avatar: { width: 64, height: 64, borderRadius: 24, backgroundColor: '#f1f5f9', borderWidth: 2, borderColor: SAND },
-  profileInfo: { flex: 1, marginLeft: 16 },
-  profileName: { fontSize: 18, fontWeight: '700', color: DEEP_SAGE },
-  profileEmail: { fontSize: 14, color: '#828282', marginTop: 2, fontStyle: 'italic' },
+  avatar: { width: 60, height: 60, borderRadius: RADIUS.M, backgroundColor: COLORS.BACKGROUND, borderWidth: 2, borderColor: COLORS.PRIMARY },
+  profileInfo: { flex: 1, marginLeft: 15 },
+  profileName: { fontSize: 18, fontWeight: '900', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5 },
+  profileEmail: { fontSize: 12, color: COLORS.TEXT_SECONDARY, marginTop: 2, fontWeight: '700' },
   
   sectionLabel: { 
-    fontSize: 11, fontWeight: '800', color: SAGE, textTransform: 'uppercase', 
-    marginBottom: 12, marginLeft: 4, letterSpacing: 1.5 
+    fontSize: 10, fontWeight: '900', color: COLORS.TEXT_SECONDARY, 
+    textTransform: 'uppercase', marginBottom: 12, marginLeft: 4, letterSpacing: 1.5 
   },
   group: { 
-    backgroundColor: '#fff', borderRadius: 28, paddingHorizontal: 16, 
-    marginBottom: 28, borderWidth: 1, borderColor: '#f1f5f9'
+    backgroundColor: COLORS.WHITE, borderRadius: RADIUS.M, 
+    paddingHorizontal: 15, marginBottom: 25, borderWidth: 1, borderColor: COLORS.BORDER
   },
   
-  logoutRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
-  logoutIconContainer: {
-    width: 36, height: 36, borderRadius: 12, backgroundColor: '#FFF5F4',
-    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  logoutBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    backgroundColor: COLORS.WHITE,
+    padding: 18, 
+    borderRadius: RADIUS.M,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+    gap: 12,
+    marginTop: 10
   },
-  logoutText: { flex: 1, fontSize: 16, fontWeight: '600', color: THEME.highlight },
+  logoutText: { fontSize: 13, fontWeight: '900', color: '#FF3B30', letterSpacing: 1 },
   
   versionText: { 
-    textAlign: 'center', color: '#cbd5e1', fontSize: 10, 
-    marginTop: 10, fontWeight: '800', letterSpacing: 2 
+    textAlign: 'center', color: COLORS.TEXT_SECONDARY, fontSize: 9, 
+    marginTop: 30, fontWeight: '800', letterSpacing: 1 
   }
 });

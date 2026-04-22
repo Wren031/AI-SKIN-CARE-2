@@ -1,5 +1,5 @@
-import { THEME } from '@/src/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { THEMES } from '@/src/constants/themes';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -17,10 +17,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 
-// Consistent Skincare Palette
-const SAGE = THEME.SAGE;
-const SAND = THEME.SAND;
-const DEEP_SAGE = THEME.DEEP_SAGE;
+// Apply DermaAI Theme
+const SKIN_THEME = THEMES.DERMA_AI;
+const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -38,12 +37,12 @@ export default function SignUpScreen() {
     const { email, password } = form;
 
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Join Us', 'Please fill in your details to create your profile.');
+      Alert.alert('Analysis', 'Please provide your details to generate your skin profile.');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Security', 'Your password should be at least 6 characters long.');
+      Alert.alert('Security', 'Your security key must be at least 6 characters.');
       return;
     }
 
@@ -56,7 +55,7 @@ export default function SignUpScreen() {
         });
       }
     } catch (error) {
-      Alert.alert('Sign Up Error', 'Could not create account. Please try again.');
+      Alert.alert('Registration Failed', 'We could not initialize your profile. Please try again.');
     }
   };
 
@@ -74,24 +73,24 @@ export default function SignUpScreen() {
           {/* Brand Header */}
           <View style={styles.header}>
             <View style={styles.logoMark}>
-              <Ionicons name="person-add-outline" size={30} color="#FFF" />
+              <MaterialCommunityIcons name="shield-check-outline" size={32} color={COLORS.WHITE} />
             </View>
-            <Text style={styles.title}>New Journey</Text>
-            <Text style={styles.subtitle}>Create an account to start your routine</Text>
+            <Text style={styles.title}>New Profile</Text>
+            <Text style={styles.subtitle}>Initialize your personalized skin regimen</Text>
           </View>
 
           <View style={styles.formCard}>
             {/* Email Input */}
-            <Text style={styles.inputLabel}>Email Address</Text>
+            <Text style={styles.inputLabel}>Patient Email</Text>
             <View style={[styles.inputGroup, focusedField === 'email' && styles.inputFocused]}>
               <Ionicons 
                 name="mail-outline" 
                 size={20} 
-                color={focusedField === 'email' ? SAGE : '#94A3B8'} 
+                color={focusedField === 'email' ? COLORS.ACCENT : COLORS.TEXT_SECONDARY} 
               />
               <TextInput
-                placeholder="hello@gmail.com"
-                placeholderTextColor="#94A3B8"
+                placeholder="email@derma.ai"
+                placeholderTextColor={COLORS.TEXT_SECONDARY}
                 style={styles.input}
                 value={form.email}
                 onChangeText={(text) => updateForm('email', text)}
@@ -104,16 +103,16 @@ export default function SignUpScreen() {
             </View>
 
             {/* Password Input */}
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={styles.inputLabel}>Security Key</Text>
             <View style={[styles.inputGroup, focusedField === 'password' && styles.inputFocused]}>
               <Ionicons 
                 name="lock-closed-outline" 
                 size={20} 
-                color={focusedField === 'password' ? SAGE : '#94A3B8'} 
+                color={focusedField === 'password' ? COLORS.ACCENT : COLORS.TEXT_SECONDARY} 
               />
               <TextInput
                 placeholder="••••••••"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={COLORS.TEXT_SECONDARY}
                 secureTextEntry={!isPasswordVisible}
                 style={styles.input}
                 value={form.password}
@@ -126,7 +125,7 @@ export default function SignUpScreen() {
                 <Ionicons 
                   name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
                   size={20} 
-                  color={SAGE} 
+                  color={COLORS.TEXT_SECONDARY} 
                 />
               </TouchableOpacity>
             </View>
@@ -138,28 +137,29 @@ export default function SignUpScreen() {
               activeOpacity={0.9}
             >
               {loading ? (
-                <ActivityIndicator color="#FFF" />
+                <ActivityIndicator color={COLORS.WHITE} />
               ) : (
-                <Text style={styles.buttonText}>Start Your Glow</Text>
+                <View style={styles.btnContent}>
+                  <Text style={styles.buttonText}>Begin Journey</Text>
+                  <Ionicons name="sparkles" size={18} color={COLORS.WHITE} style={{marginLeft: 8}} />
+                </View>
               )}
             </TouchableOpacity>
           </View>
 
           <View style={styles.divider}>
             <View style={styles.line} />
-            <Text style={styles.orText}>OR JOIN WITH</Text>
+            <Text style={styles.orText}>SECURE PROTOCOL</Text>
             <View style={styles.line} />
           </View>
 
           {/* Social Buttons */}
           <View style={styles.socialRow}>
             <TouchableOpacity style={styles.socialBtn} onPress={() => {}}>
-              <Ionicons name="logo-google" size={20} color="#DB4437" />
-              <Text style={styles.socialBtnText}>Google</Text>
+              <Ionicons name="logo-google" size={22} color={COLORS.TEXT_PRIMARY} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialBtn} onPress={() => {}}>
-              <Ionicons name="logo-apple" size={20} color={DEEP_SAGE} />
-              <Text style={styles.socialBtnText}>Apple</Text>
+              <Ionicons name="logo-apple" size={24} color={COLORS.TEXT_PRIMARY} />
             </TouchableOpacity>
           </View>
 
@@ -169,7 +169,7 @@ export default function SignUpScreen() {
             disabled={loading}
           >
             <Text style={styles.footerText}>
-              Already have an account? <Text style={styles.link}>Sign In</Text>
+              Existing Profile? <Text style={styles.link}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -179,57 +179,78 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SAND },
+  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
   scrollContent: { padding: 24, flexGrow: 1, justifyContent: 'center' },
   
   header: { alignItems: 'center', marginBottom: 40 },
   logoMark: { 
-    width: 64, height: 64, borderRadius: 24, 
-    backgroundColor: SAGE, 
+    width: 72, height: 72, borderRadius: RADIUS.M, 
+    backgroundColor: COLORS.ACCENT, // Using accent here to differentiate from Login
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: SAGE, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12,
-    elevation: 5
+    ...SHADOWS.GLOW,
+    shadowColor: COLORS.ACCENT, 
   },
-  title: { fontSize: 32, fontWeight: '300', color: DEEP_SAGE, marginTop: 20, letterSpacing: 0.5 },
-  subtitle: { fontSize: 14, color: '#828282', marginTop: 4, fontStyle: 'italic' },
+  title: { 
+    fontSize: 32, fontWeight: '800', color: COLORS.TEXT_PRIMARY, 
+    marginTop: 20, letterSpacing: -1 
+  },
+  subtitle: { 
+    fontSize: 15, color: COLORS.TEXT_SECONDARY, 
+    marginTop: 6, fontWeight: '500', textAlign: 'center', paddingHorizontal: 20 
+  },
 
   formCard: { 
-    backgroundColor: '#FFF', padding: 20, borderRadius: 32, 
-    borderWidth: 1, borderColor: '#F1F5F9',
-    shadowColor: SAGE, shadowOpacity: 0.05, shadowRadius: 15 
+    backgroundColor: COLORS.SURFACE, 
+    padding: 28, 
+    borderRadius: RADIUS.L, 
+    ...SHADOWS.SOFT,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER
   },
-  inputLabel: { fontSize: 11, fontWeight: '800', color: DEEP_SAGE, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.2, marginLeft: 4 },
+  inputLabel: { 
+    fontSize: 11, fontWeight: '700', color: COLORS.TEXT_SECONDARY, 
+    marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1.2, marginLeft: 4 
+  },
   inputGroup: { 
     flexDirection: 'row', alignItems: 'center', 
-    backgroundColor: SAND, paddingHorizontal: 16, 
-    height: 60, borderRadius: 20, marginBottom: 16,
-    borderWidth: 1.5, borderColor: '#F1F5F9'
+    backgroundColor: COLORS.INPUT_BG, paddingHorizontal: 16, 
+    height: 60, borderRadius: RADIUS.S, marginBottom: 20,
+    borderWidth: 1.5, borderColor: 'transparent'
   },
-  inputFocused: { borderColor: SAGE, backgroundColor: '#FFF' },
-  input: { flex: 1, marginLeft: 12, fontSize: 16, color: DEEP_SAGE, fontWeight: '500' },
+  inputFocused: { 
+    borderColor: COLORS.ACCENT + '40', 
+    backgroundColor: COLORS.WHITE 
+  },
+  input: { flex: 1, marginLeft: 12, fontSize: 16, color: COLORS.TEXT_PRIMARY, fontWeight: '500' },
   
   primaryButton: { 
-    backgroundColor: SAGE, height: 64, borderRadius: 20, 
-    justifyContent: 'center', alignItems: 'center', marginTop: 10,
-    shadowColor: SAGE, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15,
-    elevation: 4
+    backgroundColor: COLORS.PRIMARY, 
+    height: 64, 
+    borderRadius: RADIUS.M, 
+    justifyContent: 'center', alignItems: 'center', 
+    marginTop: 10,
+    ...SHADOWS.GLOW,
   },
+  btnContent: { flexDirection: 'row', alignItems: 'center' },
   disabledButton: { opacity: 0.6 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+  buttonText: { color: COLORS.WHITE, fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
 
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 30 },
-  line: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
-  orText: { marginHorizontal: 15, color: '#94A3B8', fontWeight: '800', fontSize: 10, letterSpacing: 1.5 },
-
-  socialRow: { flexDirection: 'row', gap: 12 },
-  socialBtn: { 
-    flex: 1, flexDirection: 'row', height: 56, borderRadius: 20, 
-    borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFF',
-    justifyContent: 'center', alignItems: 'center', gap: 8 
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 36 },
+  line: { flex: 1, height: 1, backgroundColor: COLORS.BORDER },
+  orText: { 
+    marginHorizontal: 16, color: COLORS.TEXT_SECONDARY, 
+    fontWeight: '800', fontSize: 11, letterSpacing: 1.5, opacity: 0.6 
   },
-  socialBtnText: { fontWeight: '700', color: DEEP_SAGE },
 
-  footer: { marginTop: 30, alignItems: 'center' },
-  footerText: { color: '#94A3B8', fontWeight: '600' },
-  link: { color: SAGE, fontWeight: '800' }
+  socialRow: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
+  socialBtn: { 
+    width: 64, height: 64, borderRadius: RADIUS.M, 
+    borderWidth: 1, borderColor: COLORS.BORDER, backgroundColor: COLORS.WHITE,
+    justifyContent: 'center', alignItems: 'center',
+    ...SHADOWS.SOFT
+  },
+
+  footer: { marginTop: 40, alignItems: 'center' },
+  footerText: { color: COLORS.TEXT_SECONDARY, fontSize: 15, fontWeight: '500' },
+  link: { color: COLORS.PRIMARY, fontWeight: '800' }
 });

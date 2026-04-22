@@ -1,3 +1,4 @@
+import { THEMES } from '@/src/constants/themes';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -10,11 +11,8 @@ import {
   View,
 } from 'react-native';
 
-// Skincare Oasis Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#3A4D39';
-const SOFT_CORAL = '#E67E6E';
+const SKIN_THEME = THEMES.DERMA_AI;
+const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
 
 export default function PrivacySecurityScreen() {
   const router = useRouter();
@@ -25,12 +23,12 @@ export default function PrivacySecurityScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete Profile",
-      "Are you sure? This will permanently remove your skin history and routines. This action cannot be undone.",
+      "DELETE CLINICAL PROFILE",
+      "Are you sure? This will permanently remove your skin analysis history and medical protocols. This action cannot be undone.",
       [
-        { text: "Keep My Profile", style: "cancel" },
+        { text: "KEEP PROFILE", style: "cancel" },
         { 
-          text: "Delete Forever", 
+          text: "DELETE FOREVER", 
           style: "destructive", 
           onPress: () => console.log("Account Deleted") 
         }
@@ -40,54 +38,57 @@ export default function PrivacySecurityScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Oasis Minimal Header */}
+      {/* Clinical Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={DEEP_SAGE} />
+          <Ionicons name="chevron-back" size={24} color={COLORS.TEXT_PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy & Security</Text>
+        <Text style={styles.headerTitle}>PRIVACY & SECURITY</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.content}>
         
         {/* Security Section */}
-        <Text style={styles.sectionLabel}>Access Security</Text>
+        <Text style={styles.sectionLabel}>ACCESS SECURITY</Text>
         <TouchableOpacity 
           style={styles.actionCard} 
           onPress={handlePasswordChange}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           <View style={styles.iconBox}>
-            <Ionicons name="key-outline" size={22} color={SAGE} />
+            <Ionicons name="key-outline" size={22} color={COLORS.PRIMARY} />
           </View>
           <View style={styles.textStack}>
             <Text style={styles.actionTitle}>Update Password</Text>
-            <Text style={styles.actionSub}>Keep your profile access secure</Text>
+            <Text style={styles.actionSub}>Secure your clinical data access</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+          <Ionicons name="chevron-forward" size={18} color={COLORS.BORDER} />
         </TouchableOpacity>
 
         {/* Danger Zone */}
-        <Text style={[styles.sectionLabel, { marginTop: 40 }]}>Data Management</Text>
+        <Text style={[styles.sectionLabel, { marginTop: 40 }]}>DATA MANAGEMENT</Text>
         <TouchableOpacity 
           style={[styles.actionCard, styles.dangerCard]} 
           onPress={handleDeleteAccount}
-          activeOpacity={0.7}
+          activeOpacity={0.8}
         >
           <View style={styles.dangerIconBox}>
-            <Ionicons name="trash-outline" size={22} color={SOFT_CORAL} />
+            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
           </View>
           <View style={styles.textStack}>
-            <Text style={[styles.actionTitle, { color: SOFT_CORAL }]}>Delete Account</Text>
-            <Text style={styles.actionSub}>Remove all routine and skin data</Text>
+            <Text style={[styles.actionTitle, { color: "#FF3B30" }]}>Delete Account</Text>
+            <Text style={styles.actionSub}>Remove analysis history & protocols</Text>
           </View>
         </TouchableOpacity>
 
+        {/* Clinical Info Note */}
         <View style={styles.infoBox}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={SAGE} style={{ marginBottom: 10 }} />
+          <View style={styles.shieldIcon}>
+            <Ionicons name="shield-checkmark" size={24} color={COLORS.PRIMARY} />
+          </View>
           <Text style={styles.infoNote}>
-            Your privacy is our priority. We encrypt your personal data to ensure your skincare journey remains private and secure.
+            Your medical privacy is our priority. All skin analysis data is encrypted and stored according to secure clinical standards.
           </Text>
         </View>
       </View>
@@ -96,25 +97,41 @@ export default function PrivacySecurityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SAND },
+  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
+  
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFF',
+    paddingVertical: 15,
+    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: COLORS.BORDER,
+    ...SHADOWS.SOFT
   },
-  headerTitle: { fontSize: 18, fontWeight: '300', color: DEEP_SAGE, letterSpacing: 0.5 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { 
+    fontSize: 12, 
+    fontWeight: '900', 
+    color: COLORS.TEXT_PRIMARY, 
+    letterSpacing: 2 
+  },
+  backBtn: { 
+    width: 40, 
+    height: 40, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    backgroundColor: COLORS.WHITE,
+    borderRadius: RADIUS.S,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER
+  },
 
-  content: { padding: 24 },
+  content: { padding: 20 },
   sectionLabel: { 
-    fontSize: 11, 
-    fontWeight: '800', 
-    color: SAGE, 
+    fontSize: 10, 
+    fontWeight: '900', 
+    color: COLORS.TEXT_SECONDARY, 
     textTransform: 'uppercase', 
     letterSpacing: 1.5, 
     marginBottom: 12,
@@ -124,55 +141,74 @@ const styles = StyleSheet.create({
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 28, // Rounded "Pebble" style
+    backgroundColor: COLORS.WHITE,
+    padding: 18,
+    borderRadius: RADIUS.L,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: SAGE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: COLORS.BORDER,
+    ...SHADOWS.SOFT,
   },
   dangerCard: {
-    borderColor: '#FFF5F4',
-    backgroundColor: '#FFF9F8',
+    borderColor: '#FF3B3030',
+    backgroundColor: '#FF3B3005',
   },
 
   iconBox: {
     width: 48,
     height: 48,
-    borderRadius: 18,
-    backgroundColor: '#F0F4F0',
+    borderRadius: RADIUS.M,
+    backgroundColor: COLORS.BACKGROUND,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER
   },
   dangerIconBox: {
     width: 48,
     height: 48,
-    borderRadius: 18,
-    backgroundColor: '#FFF5F4',
+    borderRadius: RADIUS.M,
+    backgroundColor: '#FF3B3010',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
 
   textStack: { flex: 1 },
-  actionTitle: { fontSize: 16, fontWeight: '700', color: DEEP_SAGE, marginBottom: 2 },
-  actionSub: { fontSize: 13, color: '#828282', fontWeight: '500', fontStyle: 'italic' },
+  actionTitle: { 
+    fontSize: 16, 
+    fontWeight: '900', 
+    color: COLORS.TEXT_PRIMARY, 
+    marginBottom: 2 
+  },
+  actionSub: { 
+    fontSize: 12, 
+    color: COLORS.TEXT_SECONDARY, 
+    fontWeight: '600' 
+  },
 
   infoBox: {
-    marginTop: 40,
+    marginTop: 60,
     alignItems: 'center',
     paddingHorizontal: 20,
+    backgroundColor: COLORS.WHITE,
+    padding: 24,
+    borderRadius: RADIUS.L,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderStyle: 'dashed'
+  },
+  shieldIcon: {
+    backgroundColor: COLORS.BACKGROUND,
+    padding: 12,
+    borderRadius: 50,
+    marginBottom: 15
   },
   infoNote: {
     textAlign: 'center',
     fontSize: 13,
-    color: '#94A3B8',
+    color: COLORS.TEXT_SECONDARY,
     lineHeight: 20,
-    fontWeight: '500'
+    fontWeight: '600'
   }
 });

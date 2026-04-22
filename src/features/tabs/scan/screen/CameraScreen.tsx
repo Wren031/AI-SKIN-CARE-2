@@ -1,253 +1,449 @@
-import { CameraType } from 'expo-camera';
-import { useFocusEffect, useRouter } from 'expo-router'; // Added useFocusEffect
-import {
-  Activity,
-  AlertCircle,
-  CheckCircle2,
-  Microscope,
-  RefreshCcw,
-  X,
-  Zap
-} from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { THEMES } from '@/src/constants/themes';
+import { useTabVisibility } from '@/src/context/TabVisibilityContext';
+import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { HelpCircle, Info, RefreshCcw, RotateCw, ScanFace, ShieldCheck, X, Zap } from 'lucide-react-native';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
+  Image,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { ScanCaptureGuide } from '../components/ScanCaptureGuide';
 
-import { useTabVisibility } from '@/src/context/TabVisibilityContext';
-
-const { width } = Dimensions.get('window');
-
-const COLORS = {
-  BG: '#FCFAF7',
-  TEXT: '#2D312E',
-  SAGE: '#8FA08E',
-  ACCENT: '#64748B',
-  BORDER: '#E2E8E2',
-  GOLD: '#D4A017'
-};
+const SKIN_THEME = THEMES.DERMA_AI;
+const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
+const { width, height } = Dimensions.get('window');
 
 export default function CameraScreen() {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isAligned, setIsAligned] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const [facing, setFacing] = useState<CameraType>('front');
-
-  const { setTabBarVisible } = useTabVisibility();
   const router = useRouter();
+  const { setTabBarVisible } = useTabVisibility();
+  const [permission, requestPermission] = useCameraPermissions();
+
+  const cameraRef = useRef<any>(null);
+  const isLocked = useRef(false);
+
+  const [processing, setProcessing] = useState(false);
+  const [torch, setTorch] = useState(false);
+  const [facing, setFacing] = useState<CameraType>('front');
+  const [scanning, setScanning] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  
+  const [showGuide, setShowGuide] = useState(true);
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
       setTabBarVisible(false);
+      setShowGuide(true); 
+      
       return () => {
         setTabBarVisible(true);
       };
     }, [setTabBarVisible])
   );
 
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
-  
-  useEffect(() => {
-    if (isAligned || isProcessing) {
+  const toggleCameraFacing = () => {
+    setFacing(current => (current === 'front' ? 'back' : 'front'));
+  };
+
+  const runScanAnimation = () => {
+    setScanning(true);
+    return new Promise<void>((resolve) => {
       Animated.loop(
-        Animated.timing(scanLineAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true
-        })
-      ).start();
-    } else {
-      scanLineAnim.stopAnimation();
-      scanLineAnim.setValue(0);
-    }
-  }, [isAligned, isProcessing]);
+        Animated.sequence([
+          Animated.timing(scanLineAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanLineAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+        ]),
+        { iterations: 2 }
+      ).start(() => {
+        setScanning(false);
+        resolve();
+      });
+    });
+  };
+
+  // const handleCapture = async () => {
+  //   if (!cameraRef.current || isLocked.current || showGuide) return;
+    
+  //   isLocked.current = true;
+  //   setProcessing(true);
+
+  //   try {
+  //     const photo = await cameraRef.current.takePictureAsync({
+  //       quality: 0.5,
+  //       base64: true,
+  //     });
+
+  //     setCapturedImage(photo.uri);
+  //     await runScanAnimation();
+
+  //     const fakeData = {
+  //       health_percent: 85,
+  //       confidence: 98,
+  //       skin_type: 'Combination',
+  //       overall_severity: 'Mild',
+  //       detections: [{ label: 'acne vulgaris', severity: 'Mild', impact: 12 }
+  //         ,{ label: 'rosacea', severity: 'Moderate', impact: 25 }
+  //         ,{ label: 'hyperpigmentation', severity: 'Mild', impact: 10 }
+  //       ]
+  //     };
+
+  //     setTimeout(() => {
+  //       router.push({
+  //         pathname: '/result-scan' as any,
+  //         params: {
+  //           score: fakeData.health_percent,
+  //           confidence: fakeData.confidence,
+  //           skinType: fakeData.skin_type,
+  //           severity: fakeData.overall_severity,
+  //           detections: JSON.stringify(fakeData.detections),
+  //           imageUri: photo.uri 
+  //         },
+  //       });
+  //       setProcessing(false);
+  //       isLocked.current = false;
+  //     }, 1500);
+
+  //   } catch (err) {
+  //     Alert.alert('Error', 'Capture failed.');
+  //     reset();
+  //   }
+  // };
+
 
   const handleCapture = async () => {
-    if (isProcessing || !isAligned) return;
-    setIsProcessing(true);
+    if (!cameraRef.current || isLocked.current || showGuide) return;
     
-    setTimeout(() => {
-        setIsProcessing(false);
-        router.push('/result-scan'); 
-    }, 3000);
+    isLocked.current = true;
+    setProcessing(true);
+
+    try {
+      // 1. Capture the photo
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.5,
+        base64: true, // Required for the backend
+      });
+
+      setCapturedImage(photo.uri);
+
+      // 2. Start the "Scanning" UI animation
+      await runScanAnimation();
+
+      // 3. Call your Backend API
+      // Replace YOUR_LOCAL_IP with your machine's actual IP address (e.g., 192.168.1.5)
+      // Android Emulator uses 10.0.2.2 to refer to your computer's localhost
+      const response = await fetch('http://192.168.8.35:5001/detect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: photo.base64,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 4. Navigate to results with real data
+        router.push({
+          pathname: '/result-scan' as any,
+          params: {
+            score: result.health_percent,
+            confidence: result.confidence,
+            skinType: result.skin_type,
+            severity: result.overall_severity,
+            detections: JSON.stringify(result.detections),
+            imageUri: photo.uri 
+          },
+        });
+      } else {
+        // Handle specific AI errors (like no face detected)
+        Alert.alert('Analysis Failed', result.error === 'no_face_detected' 
+          ? 'Please ensure your face is clearly visible in the frame.' 
+          : 'Could not analyze skin.');
+        reset();
+      }
+
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Network Error', 'Could not connect to the AI server.');
+      reset();
+    } finally {
+      setProcessing(false);
+      isLocked.current = false;
+    }
   };
+
+  const reset = () => {
+    setCapturedImage(null);
+    setScanning(false);
+    setProcessing(false);
+    isLocked.current = false;
+  };
+
+  if (!permission?.granted) {
+    return (
+      <View style={styles.center}>
+        <ShieldCheck color={COLORS.PRIMARY} size={48} style={{ marginBottom: 20 }} />
+        <Text style={styles.infoText}>Biometric access required for analysis.</Text>
+        <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
+          <Text style={styles.permissionBtnText}>AUTHORIZE CAMERA</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.navIcon}>
-          <X color={COLORS.TEXT} size={24} />
-        </TouchableOpacity>
-
-        <View style={styles.headerTitle}>
-          <Text style={styles.moduleID}>OS-V3 // SKIN_DIAGNOSTIC</Text>
-          <Text
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      
+      <View style={styles.cameraViewWrapper}>
+        {!capturedImage ? (
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing={facing}
+            enableTorch={torch}
+          />
+        ) : (
+          <Image 
+            source={{ uri: capturedImage }} 
             style={[
-              styles.statusLive,
-              { color: isAligned ? COLORS.SAGE : COLORS.ACCENT }
-            ]}
-          >
-            {isAligned ? '● TARGET_LOCKED' : '● ACQUIRING_FACE'}
-          </Text>
-        </View>
+              StyleSheet.absoluteFill, 
+              facing === 'front' ? { transform: [{ scaleX: -1 }] } : {} 
+            ]} 
+          />
+        )}
 
-        <TouchableOpacity
-          onPress={() => setFacing(f => (f === 'front' ? 'back' : 'front'))}
-          style={styles.navIcon}
-        >
-          <RefreshCcw color={COLORS.ACCENT} size={20} />
-        </TouchableOpacity>
-      </View>
-
-      {/* CAMERA VIEWPORT */}
-      <View style={styles.viewportArea}>
-        {/* Mocking the Camera alignment - Tap this to toggle "Aligned" state */}
-        <TouchableOpacity 
-          activeOpacity={1}
-          onPress={() => setIsAligned(!isAligned)} 
-          style={[styles.portalContainer, isAligned && styles.portalActive]}
-        >
-          {/* Imagine the <Camera> component is here as the background */}
-          
-          <View style={styles.portalOverlay} pointerEvents="none">
-            <View
-              style={[
-                styles.ovalMask,
-                isAligned && styles.ovalActive
-              ]}
-            />
-
-            {(isProcessing || isAligned) && (
-              <Animated.View
-                style={[
-                  styles.scanBar,
-                  {
-                    transform: [
-                      {
+        <View style={styles.targetingContainer}>
+            <View style={styles.scannerFrame}>
+              <View style={[styles.bracket, styles.topLeft]} />
+              <View style={[styles.bracket, styles.topRight]} />
+              <View style={[styles.bracket, styles.bottomLeft]} />
+              <View style={[styles.bracket, styles.bottomRight]} />
+              
+              {scanning && (
+                <Animated.View
+                  style={[
+                    styles.scanLine,
+                    {
+                      transform: [{
                         translateY: scanLineAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [-180, 180]
+                          outputRange: [0, height * 0.4],
                         })
-                      }
-                    ]
-                  }
-                ]}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
-        {!isAligned && <Text style={styles.tapHint}>[ TAP PORTAL TO SIMULATE ALIGNMENT ]</Text>}
+                      }]
+                    }
+                  ]}
+                />
+              )}
+            </View>
+        </View>
       </View>
 
-      {/* FOOTER */}
-      <View style={styles.footer}>
-        <View style={styles.guidanceBox}>
-          <View style={styles.statusRow}>
-            {isAligned ? (
-              <CheckCircle2 size={16} color={COLORS.SAGE} />
-            ) : (
-              <AlertCircle size={16} color={COLORS.ACCENT} />
-            )}
-            <Text
-              style={[
-                styles.guideText,
-                isAligned && { color: COLORS.SAGE }
-              ]}
-            >
-              {isProcessing
-                ? 'ANALYZING TISSUE...'
-                : isAligned
-                ? 'ALIGNMENT OPTIMAL'
-                : 'CENTER FACE IN PORTAL'}
+      <View style={styles.uiLayer}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.glassBtn}>
+            <X color={COLORS.WHITE} size={22} />
+          </TouchableOpacity>
+          
+          <View style={styles.statusBadge}>
+            <View style={styles.pulseDot} />
+            <Text style={styles.headerTitle}>{facing === 'front' ? 'FRONTAL_ARRAY' : 'MACRO_LENS'}</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => setShowGuide(true)} style={styles.glassBtn}>
+                <HelpCircle color={COLORS.WHITE} size={20} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setTorch(!torch)} style={styles.glassBtn}>
+                <Zap color={torch ? COLORS.PRIMARY : COLORS.WHITE} size={20} fill={torch ? COLORS.PRIMARY : 'transparent'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <View style={styles.hintBox}>
+            <Info color={COLORS.PRIMARY} size={14} />
+            <Text style={styles.instructionText}>
+              {processing ? 'ANALYZING DERMAL LAYERS...' : 'ALIGN SKIN AREA WITHIN TARGET'}
             </Text>
           </View>
-        </View>
-
-        <View style={styles.interactionRow}>
-          <TouchableOpacity
-            onPress={() => setFlash(!flash)}
-            style={styles.sideAction}
-          >
-            <Zap
-              color={flash ? COLORS.GOLD : COLORS.ACCENT}
-              size={22}
-            />
-          </TouchableOpacity>
-
-          {isProcessing ? (
-            <View style={styles.mainTrigger}>
-              <ActivityIndicator size="large" color={COLORS.SAGE} />
+          
+          <View style={styles.controlsRow}>
+            <View style={styles.sideSlot}>
+              {!capturedImage && (
+                <TouchableOpacity onPress={toggleCameraFacing} style={styles.utilityBtn}>
+                  <RotateCw color={COLORS.WHITE} size={20} />
+                </TouchableOpacity>
+              )}
             </View>
-          ) : (
+
             <TouchableOpacity
-              style={[
-                styles.mainTrigger,
-                !isAligned && styles.triggerDisabled
-              ]}
               onPress={handleCapture}
-              disabled={!isAligned}
+              disabled={processing || showGuide}
+              style={[styles.captureOuter, (processing || showGuide) && { opacity: 0.3 }]}
             >
-              <View
-                style={[
-                  styles.triggerInner,
-                  !isAligned && styles.innerDisabled
-                ]}
-              >
-                <Microscope color="#FFF" size={32} />
+              <View style={styles.captureInner}>
+                {processing ? (
+                  <ActivityIndicator color={COLORS.WHITE} />
+                ) : (
+                  <ScanFace color={COLORS.WHITE} size={32} />
+                )}
               </View>
             </TouchableOpacity>
-          )}
 
-          <TouchableOpacity style={styles.sideAction}>
-            <Activity
-              color={isAligned ? COLORS.SAGE : COLORS.ACCENT}
-              size={22}
-            />
-          </TouchableOpacity>
+            <View style={styles.sideSlot}>
+                {capturedImage && (
+                    <TouchableOpacity onPress={reset} style={styles.utilityBtn}>
+                        <RefreshCcw color={COLORS.WHITE} size={20} />
+                    </TouchableOpacity>
+                )}
+            </View>
+          </View>
         </View>
       </View>
+
+    {showGuide && (
+      <View style={styles.guideOverlayContainer}>
+        <ScanCaptureGuide 
+          onConfirm={() => setShowGuide(false)} 
+          onCancel={() => router.back()}
+        />
+      </View>
+    )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BG },
-  header: { paddingTop: 60, paddingHorizontal: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { alignItems: 'center' },
-  moduleID: { color: COLORS.ACCENT, fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
-  statusLive: { fontSize: 9, fontWeight: '700', marginTop: 2 },
-  navIcon: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  viewportArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  portalContainer: {
-    width: width * 0.85,
-    height: width * 1.15,
-    borderRadius: 160, 
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: COLORS.BORDER,
-    backgroundColor: '#000'
+  container: { flex: 1, backgroundColor: '#000' },
+  cameraViewWrapper: { ...StyleSheet.absoluteFillObject },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.BACKGROUND, padding: 40 },
+  
+  guideOverlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    backgroundColor: 'rgba(5, 7, 6, 0.98)', 
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  portalActive: { borderColor: COLORS.SAGE, elevation: 15, shadowColor: COLORS.SAGE, shadowOpacity: 0.3, shadowRadius: 25 },
-  portalOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  ovalMask: { width: '85%', height: '85%', borderRadius: 140, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderStyle: 'dashed' },
-  ovalActive: { borderColor: COLORS.SAGE, borderStyle: 'solid', borderWidth: 2.5 },
-  scanBar: { height: 4, width: '100%', backgroundColor: COLORS.SAGE, position: 'absolute', shadowColor: COLORS.SAGE, shadowOpacity: 1, shadowRadius: 10 },
-  tapHint: { fontSize: 10, color: COLORS.ACCENT, marginTop: 15, fontWeight: '600' },
-  footer: { paddingBottom: 60, paddingHorizontal: 30 },
-  guidanceBox: { alignItems: 'center', marginBottom: 30 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  guideText: { color: COLORS.TEXT, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
-  interactionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sideAction: { width: 55, height: 55, backgroundColor: '#FFF', borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.BORDER },
-  mainTrigger: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#FFF', padding: 6, borderWidth: 1, borderColor: COLORS.BORDER, justifyContent: 'center', alignItems: 'center' },
-  triggerDisabled: { opacity: 0.4 },
-  triggerInner: { width: '100%', height: '100%', borderRadius: 40, backgroundColor: COLORS.SAGE, justifyContent: 'center', alignItems: 'center' },
-  innerDisabled: { backgroundColor: COLORS.ACCENT },
+
+  targetingContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scannerFrame: {
+    width: width * 0.75,
+    height: height * 0.4,
+    borderRadius: RADIUS.L,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', 
+  },
+  bracket: { position: 'absolute', width: 40, height: 40, borderColor: COLORS.PRIMARY },
+  topLeft: { top: -2, left: -2, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: RADIUS.M },
+  topRight: { top: -2, right: -2, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: RADIUS.M },
+  bottomLeft: { bottom: -2, left: -2, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: RADIUS.M },
+  bottomRight: { bottom: -2, right: -2, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: RADIUS.M },
+  scanLine: {
+    height: 3,
+    width: '100%',
+    backgroundColor: COLORS.PRIMARY,
+    ...SHADOWS.GLOW,
+  },
+
+  uiLayer: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.ROUND,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.PRIMARY, marginRight: 8 },
+  headerTitle: { color: COLORS.WHITE, fontSize: 9, fontWeight: '900', letterSpacing: 2 },
+  glassBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  footer: { paddingBottom: 50, alignItems: 'center' },
+  hintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: RADIUS.S,
+    marginBottom: 30,
+    gap: 8,
+  },
+  instructionText: { color: COLORS.WHITE, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  controlsRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center' },
+  sideSlot: { width: 60, alignItems: 'center' },
+  captureOuter: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    borderColor: COLORS.PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 30,
+  },
+  captureInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: COLORS.PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.GLOW,
+  },
+  utilityBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  infoText: { color: COLORS.TEXT_SECONDARY, marginBottom: 20, textAlign: 'center', fontWeight: '500' },
+  permissionBtn: { paddingVertical: 16, paddingHorizontal: 32, backgroundColor: COLORS.PRIMARY, borderRadius: RADIUS.M, ...SHADOWS.GLOW },
+  permissionBtnText: { color: COLORS.WHITE, fontWeight: '900', letterSpacing: 1 },
 });

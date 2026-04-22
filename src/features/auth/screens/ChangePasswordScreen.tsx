@@ -1,3 +1,4 @@
+import { THEMES } from '@/src/constants/themes';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -15,11 +16,8 @@ import {
   View,
 } from 'react-native';
 
-// Skincare Oasis Palette
-const SAGE = '#8FA08E';
-const SAND = '#FCFAF7';
-const DEEP_SAGE = '#3A4D39';
-const SOFT_CORAL = '#E67E6E';
+const SKIN_THEME = THEMES.DERMA_AI;
+const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -34,18 +32,18 @@ export default function ChangePasswordScreen() {
 
   const handleUpdate = async () => {
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      return Alert.alert("Hold on", "Please fill in all the steps of your security update.");
+      return Alert.alert("Required Fields", "Please complete all security validation steps.");
     }
     if (form.newPassword !== form.confirmPassword) {
-      return Alert.alert("Mismatch", "The new passwords do not quite match.");
+      return Alert.alert("Validation Error", "The new credentials do not match.");
     }
 
     setLoading(true);
-    // Simulate API Call
+    // Simulate Clinical API Call
     setTimeout(() => {
       setLoading(false);
-      Alert.alert("Success", "Your profile is now secured with a new password.", [
-        { text: "Return", onPress: () => router.back() }
+      Alert.alert("Registry Updated", "Your security credentials have been successfully reset.", [
+        { text: "FINISH", onPress: () => router.back() }
       ]);
     }, 1500);
   };
@@ -53,11 +51,11 @@ export default function ChangePasswordScreen() {
   const RequirementItem = ({ label, met }: { label: string; met: boolean }) => (
     <View style={styles.reqRow}>
       <Ionicons 
-        name={met ? "checkmark-circle" : "ellipse-outline"} 
-        size={16} 
-        color={met ? SAGE : "#CBD5E1"} 
+        name={met ? "shield-checkmark" : "shield-outline"} 
+        size={14} 
+        color={met ? COLORS.SUCCESS : COLORS.BORDER} 
       />
-      <Text style={[styles.reqText, met && styles.reqTextMet]}>{label}</Text>
+      <Text style={[styles.reqText, met && styles.reqTextMet]}>{label.toUpperCase()}</Text>
     </View>
   );
 
@@ -66,9 +64,9 @@ export default function ChangePasswordScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={DEEP_SAGE} />
+          <Ionicons name="chevron-back" size={24} color={COLORS.TEXT_PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Update Password</Text>
+        <Text style={styles.headerTitle}>SECURITY ACCESS</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -78,25 +76,27 @@ export default function ChangePasswordScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>Secure your profile</Text>
-            <Text style={styles.infoSub}>A strong password ensures your skin history and personal data stay private.</Text>
+            <Text style={styles.infoTitle}>Update Credentials</Text>
+            <Text style={styles.infoSub}>
+              Ensure your diagnostic history and patient records remain protected with a high-entropy password.
+            </Text>
           </View>
 
           <View style={styles.formCard}>
             {/* Current Password */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Current Password</Text>
+              <Text style={styles.label}>Current Security Key</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={styles.input}
                   secureTextEntry={!showPassword}
                   value={form.currentPassword}
                   onChangeText={(v) => setForm({ ...form, currentPassword: v })}
-                  placeholder="Enter current password"
-                  placeholderTextColor="#94a3b8"
+                  placeholder="EXISTING PASSWORD"
+                  placeholderTextColor={COLORS.TEXT_SECONDARY}
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={SAGE} />
+                  <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.PRIMARY} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -105,39 +105,39 @@ export default function ChangePasswordScreen() {
 
             {/* New Password */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>New Password</Text>
+              <Text style={styles.label}>New Security Key</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={styles.input}
                   secureTextEntry={!showPassword}
                   value={form.newPassword}
                   onChangeText={(v) => setForm({ ...form, newPassword: v })}
-                  placeholder="Create new password"
-                  placeholderTextColor="#94a3b8"
+                  placeholder="CREATE NEW KEY"
+                  placeholderTextColor={COLORS.TEXT_SECONDARY}
                 />
               </View>
             </View>
 
             {/* Confirm Password */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm New Password</Text>
+              <Text style={styles.label}>Confirm New Key</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={styles.input}
                   secureTextEntry={!showPassword}
                   value={form.confirmPassword}
                   onChangeText={(v) => setForm({ ...form, confirmPassword: v })}
-                  placeholder="Repeat new password"
-                  placeholderTextColor="#94a3b8"
+                  placeholder="RE-TYPE NEW KEY"
+                  placeholderTextColor={COLORS.TEXT_SECONDARY}
                 />
               </View>
             </View>
 
-            {/* Requirements Checklist */}
+            {/* Clinical Requirements Checklist */}
             <View style={styles.requirementsContainer}>
-              <RequirementItem label="At least 8 characters" met={form.newPassword.length >= 8} />
-              <RequirementItem label="Includes a number or symbol" met={/[0-9!@#$%^&*]/.test(form.newPassword)} />
-              <RequirementItem label="Passwords match" met={form.newPassword === form.confirmPassword && form.newPassword !== ''} />
+              <RequirementItem label="8+ Characters" met={form.newPassword.length >= 8} />
+              <RequirementItem label="Alphanumeric/Symbol" met={/[0-9!@#$%^&*]/.test(form.newPassword)} />
+              <RequirementItem label="Registry Match" met={form.newPassword === form.confirmPassword && form.newPassword !== ''} />
             </View>
           </View>
 
@@ -150,7 +150,7 @@ export default function ChangePasswordScreen() {
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.saveBtnText}>Save New Password</Text>
+              <Text style={styles.saveBtnText}>UPDATE SYSTEM ACCESS</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -160,69 +160,71 @@ export default function ChangePasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SAND },
+  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFF',
+    paddingVertical: 15,
+    backgroundColor: COLORS.WHITE,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: COLORS.BORDER,
+    ...SHADOWS.SOFT,
   },
-  headerTitle: { fontSize: 18, fontWeight: '300', color: DEEP_SAGE, letterSpacing: 0.5 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 12, fontWeight: '900', color: COLORS.TEXT_PRIMARY, letterSpacing: 2 },
+  backBtn: { 
+    width: 40, 
+    height: 40, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderRadius: RADIUS.S,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER 
+  },
   
-  scrollContent: { padding: 24 },
+  scrollContent: { padding: 20 },
   
-  infoBox: { marginBottom: 32 },
-  infoTitle: { fontSize: 26, fontWeight: '300', color: DEEP_SAGE, marginBottom: 8 },
-  infoSub: { fontSize: 15, color: '#828282', lineHeight: 22, fontStyle: 'italic' },
+  infoBox: { marginBottom: 30, marginTop: 10 },
+  infoTitle: { fontSize: 32, fontWeight: '900', color: COLORS.TEXT_PRIMARY, marginBottom: 8, letterSpacing: -1 },
+  infoSub: { fontSize: 14, color: COLORS.TEXT_SECONDARY, lineHeight: 22, fontWeight: '600' },
   
   formCard: { 
-    backgroundColor: '#FFF', 
-    borderRadius: 30, 
-    padding: 24,
+    backgroundColor: COLORS.WHITE, 
+    borderRadius: RADIUS.M, 
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: SAGE,
-    shadowOpacity: 0.04,
-    shadowRadius: 15,
-    elevation: 2,
+    borderColor: COLORS.BORDER,
+    ...SHADOWS.SOFT,
   },
   inputGroup: { marginBottom: 20 },
-  label: { fontSize: 11, fontWeight: '800', color: SAGE, textTransform: 'uppercase', marginBottom: 10, marginLeft: 4, letterSpacing: 1 },
+  label: { fontSize: 10, fontWeight: '900', color: COLORS.TEXT_SECONDARY, textTransform: 'uppercase', marginBottom: 10, marginLeft: 4, letterSpacing: 1 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: SAND,
-    borderRadius: 18,
+    backgroundColor: COLORS.BACKGROUND,
+    borderRadius: RADIUS.S,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: COLORS.BORDER,
   },
-  input: { flex: 1, height: 56, fontSize: 16, color: DEEP_SAGE, fontWeight: '500' },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
+  input: { flex: 1, height: 56, fontSize: 15, color: COLORS.TEXT_PRIMARY, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: COLORS.BORDER, marginVertical: 10 },
   
   requirementsContainer: { marginTop: 15, paddingHorizontal: 4 },
-  reqRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  reqText: { fontSize: 13, color: '#94A3B8', marginLeft: 10, fontWeight: '500' },
-  reqTextMet: { color: DEEP_SAGE },
+  reqRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  reqText: { fontSize: 10, color: COLORS.TEXT_SECONDARY, marginLeft: 10, fontWeight: '900', letterSpacing: 0.5 },
+  reqTextMet: { color: COLORS.SUCCESS },
   
   saveBtn: {
-    backgroundColor: SOFT_CORAL,
-    height: 62,
-    borderRadius: 22,
+    backgroundColor: COLORS.PRIMARY,
+    height: 60,
+    borderRadius: RADIUS.M,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 40,
-    shadowColor: SOFT_CORAL,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 4,
+    marginTop: 35,
+    ...SHADOWS.SOFT,
   },
-  disabledBtn: { backgroundColor: '#CBD5E1', shadowOpacity: 0 },
-  saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  disabledBtn: { backgroundColor: COLORS.BORDER, shadowOpacity: 0 },
+  saveBtnText: { color: '#FFF', fontSize: 14, fontWeight: '900', letterSpacing: 2 },
 });
