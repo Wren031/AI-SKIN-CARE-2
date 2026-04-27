@@ -1,36 +1,56 @@
 import { supabase } from "../../lib/supabase";
 
-export const fetchFullRecommendations = async (formattedDetections: { id: number; severity: string }[]) => {
+export const fetchFullRecommendations = async (
+  formattedDetections: { id: number; severity: string }[]
+) => {
   if (!formattedDetections || formattedDetections.length === 0) return [];
 
-  // 1. Construct the filter string
-  const filterList = formattedDetections.map(d => 
-    `and(condition_id.eq.${d.id},severity.eq.${d.severity})`
-  );
+  const orFilters = formattedDetections
+    .map(
+      (d) => `and(condition_id.eq.${d.id},severity.eq.${d.severity})`
+    )
+    .join(",");
 
   const { data, error } = await supabase
-    .from('tbl_recommendations')
+    .from("tbl_recommendations")
     .select(`
       id,
       severity,
       treatment,
       precautions,
-      tbl_condition!condition_id (
-        name
+      created_at,
+
+      tbl_condition (
+        id,
+        name,
+        created_at
       ),
+
       tbl_recommendation_products (
-        tbl_products!product_id (
+        tbl_products (
           id,
-          product_name, 
+          product_name,
+          type,
+          price,
           image_url,
-          brand
+          instructions,
+          usage
+        )
+      ),
+
+      tbl_recommendation_lifestyle_tips (
+        tbl_lifestyle_tips (
+          id,
+          category,
+          title,
+          description
         )
       )
     `)
-    .or(filterList.join(','));
+    .or(orFilters);
 
   if (error) {
-    console.error("Supabase Join Error:", error.message);
+    console.error("Supabase Query Error:", error.message);
     throw error;
   }
 

@@ -1,32 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
-// Internal assets/constants
 import { THEMES } from '@/src/constants/themes';
 
-/* ==========================================================================
-   TYPES & CONSTANTS
-   ========================================================================== */
+const { width } = Dimensions.get('window');
+const { COLORS } = THEMES.DERMA_AI;
 
-const { COLORS, SHADOWS } = THEMES.DERMA_AI;
+/* ================= TYPES & CONSTANTS ================= */
 
-const STORAGE_KEYS = {
-    LAST_DATE: 'skincare_last_date',
-    STREAK: 'skincare_streak',
-} as const;
-
-type RoutineType = 'morning' | 'evening';
+type RoutineType = 'morning' | 'evening' | 'lifestyle';
 
 interface RoutineItem {
     id: string;
@@ -36,298 +31,270 @@ interface RoutineItem {
     type: RoutineType;
 }
 
-const DEFAULT_ROUTINE: RoutineItem[] = [
-    { id: '1', title: 'Gentle Cleanser', completed: false, icon: 'sunny-outline', type: 'morning' },
-    { id: '2', title: 'Vitamin C Serum', completed: false, icon: 'leaf-outline', type: 'morning' },
-    { id: '3', title: 'SPF 30+ Protection', completed: false, icon: 'umbrella-outline', type: 'morning' },
-    { id: '4', title: 'Deep Cleansing Balm', completed: false, icon: 'moon-outline', type: 'evening' },
-    { id: '5', title: 'Hydrating Moisturizer', completed: false, icon: 'water-outline', type: 'evening' },
-    { id: '6', title: 'Night Repair Serum', completed: false, icon: 'sparkles-outline', type: 'evening' },
-];
+const STORAGE_KEYS = {
+    LAST_DATE: 'skincare_last_date',
+    STREAK: 'skincare_streak',
+} as const;
 
-/* ==========================================================================
-   CUSTOM HOOKS
-   ========================================================================== */
+/* ================= REFINED GENERATOR ================= */
 
-const useSkincareRoutine = () => {
-    const [routine, setRoutine] = useState<RoutineItem[]>(DEFAULT_ROUTINE);
-    const [streak, setStreak] = useState<number>(0);
+const generateRoutine = (products: any[], lifestyle: any[]): RoutineItem[] => {
+    let routine: RoutineItem[] = [];
 
-    const initializeProgress = useCallback(async () => {
-        const today = new Date().toDateString();
-        try {
-            const [savedDate, savedStreak] = await Promise.all([
-                AsyncStorage.getItem(STORAGE_KEYS.LAST_DATE),
-                AsyncStorage.getItem(STORAGE_KEYS.STREAK),
-            ]);
+    products.forEach((product, index) => {
+        const usage = (product.usage || "").toLowerCase();
+        const title = product.product_name;
 
-            const currentStreak = Number(savedStreak) || 0;
-            
-            if (savedDate !== today) {
-                // Logic: Only increment streak if the last recorded date was yesterday
-                const updatedStreak = savedDate ? currentStreak + 1 : 1;
-                setStreak(updatedStreak);
-                setRoutine(DEFAULT_ROUTINE);
-                
-                await AsyncStorage.multiSet([
-                    [STORAGE_KEYS.STREAK, String(updatedStreak)],
-                    [STORAGE_KEYS.LAST_DATE, today],
-                ]);
-            } else {
-                setStreak(currentStreak);
-            }
-        } catch (error) {
-            console.error('[Storage Error]: Failed to load routine state', error);
+        if (usage.includes("morning") && usage.includes("evening")) {
+            routine.push({ id: `p-${index}-m`, title, completed: false, icon: "sunny", type: "morning" });
+            routine.push({ id: `p-${index}-e`, title, completed: false, icon: "moon", type: "evening" });
+        } else if (usage.includes("night") || usage.includes("evening")) {
+            routine.push({ id: `p-${index}`, title, completed: false, icon: "moon", type: "evening" });
+        } else {
+            routine.push({ id: `p-${index}`, title, completed: false, icon: "sunny", type: "morning" });
         }
-    }, []);
+    });
 
-    useEffect(() => {
-        initializeProgress();
-    }, [initializeProgress]);
+    lifestyle.forEach((tip, index) => {
+        routine.push({ id: `l-${index}`, title: tip.title, completed: false, icon: "leaf", type: "lifestyle" });
+    });
 
-    const toggleItem = useCallback((id: string) => {
-        setRoutine(prev =>
-            prev.map(item => (item.id === id ? { ...item, completed: !item.completed } : item))
-        );
-    }, []);
-
-    const progress = useMemo(() => {
-        const completedCount = routine.filter(i => i.completed).length;
-        return {
-            completedCount,
-            totalCount: routine.length,
-            percentage: routine.length ? completedCount / routine.length : 0,
-        };
-    }, [routine]);
-
-    const categorizedRoutine = useMemo(() => ({
-        morning: routine.filter(item => item.type === 'morning'),
-        evening: routine.filter(item => item.type === 'evening'),
-    }), [routine]);
-
-    return { categorizedRoutine, streak, toggleItem, progress };
+    return routine;
 };
 
-/* ==========================================================================
-   SUB-COMPONENTS
-   ========================================================================== */
+/* ================= COMPONENTS ================= */
 
-const ProgressBar = memo(({ progress }: { progress: number }) => (
-    <View style={styles.progressContainer}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-    </View>
-));
+const ProgressCircle = ({ done, total, streak }: { done: number, total: number, streak: number }) => {
+    const percentage = total > 0 ? Math.round((done / total) * 100) : 0;
+    
+    return (
+        <View style={styles.progressContainer}>
+            <View style={styles.statsRow}>
+                <View>
+                    <Text style={styles.progressTitle}>Daily Progress</Text>
+                    <Text style={styles.progressSubtitle}>{percentage}% Completed</Text>
+                </View>
+                <View style={styles.streakBadge}>
+                    <Ionicons name="flame" size={16} color="#F59E0B" />
+                    <Text style={styles.streakText}>{streak} Day Streak</Text>
+                </View>
+            </View>
+            
+            <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${percentage}%` }]} />
+            </View>
+        </View>
+    );
+};
 
-const RoutineCard = memo(({ item, onToggle }: { item: RoutineItem; onToggle: (id: string) => void }) => (
-    <TouchableOpacity
-        onPress={() => onToggle(item.id)}
-        style={[styles.itemRow, item.completed && styles.itemCompleted]}
-        activeOpacity={0.6}
-    >
-        <View style={styles.itemContent}>
-            <View style={[styles.iconWrapper, item.completed && styles.iconWrapperDone]}>
-                <Ionicons
-                    name={item.icon}
-                    size={18}
-                    color={item.completed ? COLORS.WHITE : COLORS.PRIMARY}
+const RoutineCard = memo(({ item, onToggle }: { item: RoutineItem, onToggle: (id: string) => void }) => {
+    const isMorning = item.type === 'morning';
+    const isEvening = item.type === 'evening';
+    
+    const iconBg = isMorning ? '#FFF7ED' : isEvening ? '#F5F3FF' : '#F0FDF4';
+    const iconColor = isMorning ? '#F59E0B' : isEvening ? '#7C3AED' : '#10B981';
+
+    return (
+        <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onToggle(item.id)}
+            style={[styles.itemCard, item.completed && styles.itemCardCompleted]}
+        >
+            <View style={[styles.iconWrapper, { backgroundColor: item.completed ? '#F1F5F9' : iconBg }]}>
+                <Ionicons 
+                    name={item.icon} 
+                    size={20} 
+                    color={item.completed ? '#94A3B8' : iconColor} 
                 />
             </View>
-            <Text style={[styles.itemText, item.completed && styles.itemTextDone]}>
+            
+            <Text style={[styles.itemText, item.completed && styles.itemTextCompleted]} numberOfLines={1}>
                 {item.title}
             </Text>
-        </View>
-        <Ionicons
-            name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
-            color={item.completed ? COLORS.SUCCESS : '#D1D1D6'}
-        />
-    </TouchableOpacity>
-));
 
-/* ==========================================================================
-   MAIN SCREEN
-   ========================================================================== */
+            <View style={[styles.checkbox, item.completed && styles.checkboxChecked]}>
+                {item.completed && <Ionicons name="checkmark" size={14} color="#FFF" />}
+            </View>
+        </TouchableOpacity>
+    );
+});
+
+/* ================= MAIN SCREEN ================= */
 
 export default function StartSkinCareJourney() {
     const router = useRouter();
-    const { categorizedRoutine, streak, toggleItem, progress } = useSkincareRoutine();
+    const params = useLocalSearchParams();
+
+    // Parse Data
+    const products = useMemo(() => {
+        try { return params.products ? JSON.parse(params.products as string) : []; } catch { return []; }
+    }, [params.products]);
+
+    const lifestyle = useMemo(() => {
+        try { return params.lifestyle ? JSON.parse(params.lifestyle as string) : []; } catch { return []; }
+    }, [params.lifestyle]);
+
+    // Routine Logic
+    const dynamicRoutine = useMemo(() => generateRoutine(products, lifestyle), [products, lifestyle]);
+    const [routine, setRoutine] = useState<RoutineItem[]>(dynamicRoutine);
+    const [streak, setStreak] = useState(0);
+
+    useEffect(() => {
+        (async () => {
+            const today = new Date().toDateString();
+            const savedDate = await AsyncStorage.getItem(STORAGE_KEYS.LAST_DATE);
+            const savedStreak = await AsyncStorage.getItem(STORAGE_KEYS.STREAK);
+            const currentStreak = Number(savedStreak) || 0;
+
+            if (savedDate !== today) {
+                setStreak(savedDate ? currentStreak + 1 : 1);
+                // Keep the dynamic routine for new day
+            } else {
+                setStreak(currentStreak);
+            }
+        })();
+    }, []);
+
+    const toggleItem = (id: string) => {
+        setRoutine(prev => prev.map(item => 
+            item.id === id ? { ...item, completed: !item.completed } : item
+        ));
+    };
+
+    const categorized = useMemo(() => ({
+        morning: routine.filter(i => i.type === 'morning'),
+        evening: routine.filter(i => i.type === 'evening'),
+        lifestyle: routine.filter(i => i.type === 'lifestyle'),
+    }), [routine]);
+
+    const doneCount = routine.filter(i => i.completed).length;
 
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
 
-            {/* Header / Navbar */}
-            <View style={styles.navbar}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={24} color={COLORS.TEXT_PRIMARY} />
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#1E293B" />
                 </TouchableOpacity>
-                <Text style={styles.navTitle}>Medical Protocol</Text>
-                <View style={styles.streakBadge}>
-                    <Ionicons name="flame" size={14} color={COLORS.WHITE} />
-                    <Text style={styles.streakText}>{streak} Day Streak</Text>
-                </View>
+                <Text style={styles.headerTitle}>Daily Routine</Text>
+                <TouchableOpacity style={styles.calendarBtn}>
+                    <Ionicons name="calendar-outline" size={22} color="#1E293B" />
+                </TouchableOpacity>
             </View>
 
-            <ScrollView 
-                showsVerticalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-            >
-                {/* Progress Overview */}
-                <View style={styles.headerSection}>
-                    <View>
-                        <Text style={styles.mainTitle}>Daily Status</Text>
-                        <Text style={styles.subTitle}>Optimized for your skin profile</Text>
-                    </View>
-                    <View style={styles.counterBadge}>
-                        <Text style={styles.counterText}>
-                            {progress.completedCount}/{progress.totalCount}
-                        </Text>
-                    </View>
-                </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+                <ProgressCircle done={doneCount} total={routine.length} streak={streak} />
 
-                <View style={styles.progressWrapper}>
-                    <ProgressBar progress={progress.percentage} />
-                </View>
-
-                {/* Morning Routine Section */}
-                <RoutineSection 
-                    title="Morning Routine" 
-                    icon="sunny" 
-                    iconColor="#FF9500" 
-                    data={categorizedRoutine.morning} 
-                    onToggle={toggleItem} 
-                />
-
-                {/* Evening Routine Section */}
-                <RoutineSection 
-                    title="Evening Routine" 
-                    icon="moon" 
-                    iconColor="#5856D6" 
-                    data={categorizedRoutine.evening} 
-                    onToggle={toggleItem} 
-                />
+                <Section title="Morning Protocol" icon="sunny" color="#F59E0B" data={categorized.morning} onToggle={toggleItem} />
+                <Section title="Evening Protocol" icon="moon" color="#7C3AED" data={categorized.evening} onToggle={toggleItem} />
+                <Section title="Lifestyle Habits" icon="leaf" color="#10B981" data={categorized.lifestyle} onToggle={toggleItem} />
             </ScrollView>
-
-            <View style={styles.footer}>
-                <TouchableOpacity 
-                    onPress={() => router.push('/home')} 
-                    style={styles.primaryButton}
-                >
-                    <Text style={styles.primaryButtonText}>Complete Session</Text>
-                </TouchableOpacity>
-            </View>
         </SafeAreaView>
     );
 }
 
-const RoutineSection = ({ title, icon, iconColor, data, onToggle }: any) => (
-    <View style={styles.routineSection}>
-        <View style={styles.sectionHeader}>
-            <Ionicons name={icon} size={20} color={iconColor} />
-            <Text style={styles.sectionLabel}>{title}</Text>
-        </View>
-        <View style={styles.mainCard}>
-            {data.map((item: RoutineItem) => (
+const Section = ({ title, data, onToggle, icon, color }: any) => {
+    if (data.length === 0) return null;
+    return (
+        <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+                <Ionicons name={icon} size={18} color={color} style={{ marginRight: 8 }} />
+                <Text style={styles.sectionTitle}>{title}</Text>
+                <Text style={styles.countText}>{data.filter((i: any) => i.completed).length}/{data.length}</Text>
+            </View>
+            {data.map((item: any) => (
                 <RoutineCard key={item.id} item={item} onToggle={onToggle} />
             ))}
         </View>
-    </View>
-);
+    );
+};
 
-/* ==========================================================================
-   STYLES
-   ========================================================================== */
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7' },
-    navbar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
+    container: { flex: 1, backgroundColor: "#F8FAFC" },
+    
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: COLORS.WHITE,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E5EA',
+        backgroundColor: '#FFF'
     },
-    backButton: { padding: 4 },
-    navTitle: { fontSize: 17, fontWeight: '700', color: COLORS.TEXT_PRIMARY },
+    backBtn: { width: 40, height: 40, justifyContent: 'center' },
+    calendarBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' },
+    headerTitle: { fontSize: 17, fontWeight: "800", color: "#1E293B" },
+
+    scrollBody: { paddingBottom: 40 },
+
+    /* PROGRESS CARD */
+    progressContainer: {
+        margin: 20,
+        padding: 24,
+        backgroundColor: '#FFF',
+        borderRadius: 30,
+        ...Platform.select({
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20 },
+            android: { elevation: 3 }
+        })
+    },
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    progressTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B' },
+    progressSubtitle: { fontSize: 13, color: '#64748B', fontWeight: '600', marginTop: 2 },
     streakBadge: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: COLORS.PRIMARY, 
-        paddingHorizontal: 10, 
-        paddingVertical: 6, 
-        borderRadius: 12, 
-        gap: 4 
+        flexDirection: 'row', alignItems: 'center', gap: 6, 
+        backgroundColor: '#FFF7ED', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 
     },
-    streakText: { color: COLORS.WHITE, fontSize: 11, fontWeight: 'bold' },
-    scrollContent: { paddingBottom: 120 },
-    headerSection: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: 24 
+    streakText: { fontSize: 12, fontWeight: '700', color: '#B45309' },
+    progressBarBg: { height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, overflow: 'hidden' },
+    progressBarFill: { height: '100%', backgroundColor: COLORS.PRIMARY, borderRadius: 4 },
+
+    /* SECTIONS */
+    section: { paddingHorizontal: 20, marginTop: 10 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 10 },
+    sectionTitle: { fontSize: 14, fontWeight: "900", color: "#64748B", textTransform: 'uppercase', letterSpacing: 1, flex: 1 },
+    countText: { fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+
+    /* ITEM CARDS */
+    itemCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        padding: 16,
+        backgroundColor: "#FFF",
+        marginBottom: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#F1F5F9'
     },
-    mainTitle: { fontSize: 24, fontWeight: '800', color: COLORS.TEXT_PRIMARY },
-    subTitle: { fontSize: 14, color: COLORS.TEXT_SECONDARY, marginTop: 2 },
-    counterBadge: { 
-        backgroundColor: COLORS.WHITE, 
-        width: 50, 
-        height: 50, 
-        borderRadius: 25, 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        ...SHADOWS.SOFT 
+    itemCardCompleted: {
+        backgroundColor: '#F8FAFC',
+        borderColor: 'transparent',
     },
-    counterText: { color: COLORS.PRIMARY, fontWeight: 'bold', fontSize: 14 },
-    progressWrapper: { paddingHorizontal: 24, marginBottom: 30 },
-    progressContainer: { height: 10, backgroundColor: '#E5E5EA', borderRadius: 5, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: COLORS.PRIMARY },
-    routineSection: { paddingHorizontal: 20, marginBottom: 24 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-    sectionLabel: { fontSize: 18, fontWeight: '700', color: COLORS.TEXT_PRIMARY },
-    mainCard: { 
-        backgroundColor: COLORS.WHITE, 
-        borderRadius: 20, 
-        padding: 12, 
-        ...SHADOWS.SOFT 
+    iconWrapper: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16
     },
-    itemRow: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        paddingVertical: 14, 
-        paddingHorizontal: 8 
+    itemText: { fontSize: 15, fontWeight: "700", color: "#334155", flex: 1 },
+    itemTextCompleted: { color: "#94A3B8", textDecorationLine: 'line-through' },
+    
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center'
     },
-    itemContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    itemCompleted: { opacity: 0.6 },
-    iconWrapper: { 
-        width: 36, 
-        height: 36, 
-        borderRadius: 10, 
-        backgroundColor: '#F2F2F7', 
-        justifyContent: 'center', 
-        alignItems: 'center' 
-    },
-    iconWrapperDone: { backgroundColor: COLORS.SUCCESS + '20' },
-    itemText: { fontSize: 16, fontWeight: '500', color: COLORS.TEXT_PRIMARY },
-    itemTextDone: { textDecorationLine: 'line-through', color: COLORS.TEXT_SECONDARY },
-    footer: { 
-        position: 'absolute', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        padding: 24, 
-        backgroundColor: 'rgba(242, 242, 247, 0.9)' 
-    },
-    primaryButton: { 
-        backgroundColor: COLORS.PRIMARY, 
-        height: 58, 
-        borderRadius: 18, 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        ...SHADOWS.SOFT 
-    },
-    primaryButtonText: { color: COLORS.WHITE, fontSize: 17, fontWeight: '700' },
+    checkboxChecked: {
+        backgroundColor: '#10B981',
+        borderColor: '#10B981'
+    }
 });

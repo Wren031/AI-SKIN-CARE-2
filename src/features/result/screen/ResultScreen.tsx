@@ -1,5 +1,5 @@
 import { THEMES } from '@/src/constants/themes';
-import { Activity, ChevronRight, RefreshCcw, ShieldCheck, Sparkles, X, Zap } from 'lucide-react-native';
+import { Activity, ChevronRight, ShieldCheck, Sparkles, X, Zap } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -41,8 +41,6 @@ export default function ResultScreen() {
   const sevStyle = getSeverityStyles(analysis.severity);
 
 
-  const MOCK_USER_ID = "user_123_abc"; 
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <StatusBar barStyle="dark-content" />
@@ -81,7 +79,7 @@ export default function ResultScreen() {
       <View style={styles.infoBox}>
         <View style={styles.infoRow}>
           <View>
-            <Text style={styles.infoRowLabel}>DERMAL CLASSIFICATION</Text>
+            <Text style={styles.infoRowLabel}>SKIN TYPE</Text>
             <Text style={styles.infoRowValue}>{analysis.skinType.toUpperCase()}</Text>
           </View>
           <Zap size={18} color={COLORS.ACCENT} />
@@ -125,8 +123,7 @@ export default function ResultScreen() {
           onPress={handleExit}
           disabled={isSaving} // Disable interaction while saving
         >
-          <RefreshCcw size={18} color={COLORS.TEXT_PRIMARY} />
-          <Text style={styles.scanAgainBtnText}>RESCAN</Text>
+          <Text style={styles.scanAgainBtnText}>Home</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -139,7 +136,7 @@ export default function ResultScreen() {
           ) : (
             <>
               <Zap size={18} color={COLORS.WHITE} fill={COLORS.WHITE} />
-              <Text style={styles.recommendationBtnText}>VIEW PROTOCOL</Text>
+              <Text style={styles.recommendationBtnText}>View Recommendation</Text>
             </>
           )}
         </TouchableOpacity>

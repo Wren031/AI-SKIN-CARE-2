@@ -148,7 +148,7 @@ export default function CameraScreen() {
       // 3. Call your Backend API
       // Replace YOUR_LOCAL_IP with your machine's actual IP address (e.g., 192.168.1.5)
       // Android Emulator uses 10.0.2.2 to refer to your computer's localhost
-      const response = await fetch('http://192.168.8.35:5001/detect', {
+      const response = await fetch('http://192.168.8.38:5001/detect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
