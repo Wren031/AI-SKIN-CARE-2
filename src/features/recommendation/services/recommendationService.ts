@@ -1,58 +1,64 @@
 import { supabase } from "../../lib/supabase";
 
-export const fetchFullRecommendations = async (
-  formattedDetections: { id: number; severity: string }[]
-) => {
-  if (!formattedDetections || formattedDetections.length === 0) return [];
+export const recommendationService = {
 
-  const orFilters = formattedDetections
-    .map(
-      (d) => `and(condition_id.eq.${d.id},severity.eq.${d.severity})`
-    )
-    .join(",");
 
-  const { data, error } = await supabase
-    .from("tbl_recommendations")
-    .select(`
-      id,
-      severity,
-      treatment,
-      precautions,
-      created_at,
+  fetchFullRecommendations: async (
+    formattedDetections: { id: number; severity: string }[]
+  ) => {
+    if (!formattedDetections || formattedDetections.length === 0) return [];
 
-      tbl_condition (
+    const orFilters = formattedDetections
+      .map((d) => `and(condition_id.eq.${d.id},severity.eq.${d.severity})`)
+      .join(",");
+
+    const { data, error } = await supabase
+      .from("tbl_recommendations")
+      .select(`
         id,
-        name,
-        created_at
-      ),
-
-      tbl_recommendation_products (
-        tbl_products (
-          id,
-          product_name,
-          type,
-          price,
-          image_url,
-          instructions,
-          usage
+        severity,
+        treatment,
+        precautions,
+        created_at,
+        tbl_condition (id, name, created_at),
+        tbl_recommendation_products (
+          tbl_products (*)
+        ),
+        tbl_recommendation_lifestyle_tips (
+          tbl_lifestyle_tips (*)
         )
-      ),
+      `)
+      .or(orFilters);
 
-      tbl_recommendation_lifestyle_tips (
-        tbl_lifestyle_tips (
-          id,
-          category,
-          title,
-          description
-        )
-      )
-    `)
-    .or(orFilters);
+    if (error) {
+      console.error("Supabase Query Error:", error.message);
+      throw error;
+    }
 
-  if (error) {
-    console.error("Supabase Query Error:", error.message);
-    throw error;
+    return data;
+  },
+
+  async saveUsersRecommendations(
+    recommendationId: number, 
+    productId: number | null, 
+    lifestyleTipId: number | null,
+    profileId: string, 
+    skinResultId: number
+  ) {
+    const { data, error } = await supabase
+      .from('tbl_users_recommendation')
+      .insert([{
+        recommendation_id: recommendationId,
+        product_id: productId,
+        lifestyle_id: lifestyleTipId,
+        profile_id: profileId,
+        skin_result_id: skinResultId,
+         created_at: new Date().toISOString(),
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
-
-  return data;
 };

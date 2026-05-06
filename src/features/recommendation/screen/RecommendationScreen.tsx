@@ -13,6 +13,7 @@ import {
 import React, { useMemo } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Platform,
@@ -25,8 +26,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { THEMES } from "@/src/constants/themes";
+import { supabase } from "../../lib/supabase"; // Ensure you have access to supabase auth
 import { useRecommendations } from "../hooks/useRecommendations";
+import { useUserSkinResult } from "../hooks/useUserSkinResult";
 import { LifestyleTip, Product } from "../types/Product";
+import { Severity, UsersSkinResult } from "../types/UsersSkinResult";
 
 const { width } = Dimensions.get("window");
 const COLORS = THEMES.DERMA_AI.COLORS;
@@ -48,41 +52,85 @@ export default function RecommendationScreen() {
     () => parseJSON(params.detections as string),
     [params.detections]
   );
+  
+  // Hooks
+  const { advice, loading, saveUsersRecommendations } = useRecommendations(detections);
 
-  const { advice, loading } = useRecommendations(detections);
+
+  const { createReport, isSaving: isSavingResult } = useUserSkinResult();
+  
+  const hasSaved = React.useRef(false); 
 
   const goBack = () => router.back();
   const goHome = () => router.replace("/(tabs)/home");
-  
-  const startJourney = () => {
-    const allProducts = advice?.flatMap((item: any) =>
-        item.tbl_recommendation_products?.map((p: any) => p.tbl_products)
-    ) || [];
 
-    const allLifestyleTips = advice?.flatMap((item: any) =>
-        item.tbl_recommendation_lifestyle_tips?.map((l: any) => l.tbl_lifestyle_tips)
-    ) || [];
+  const saveUserResult = async () => {
+    if (hasSaved.current || loading || isSavingResult) return;
 
-    router.push({
-      pathname: "/start-my-journey",
-      params: {
-        products: JSON.stringify(allProducts),
-        lifestyle: JSON.stringify(allLifestyleTips),
-      },
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Authentication Required", "Please sign in to save your journey.");
+        return;
+      }
+
+      const payload: UsersSkinResult = {
+        score: parseInt(params.score as string, 10) || 0,
+        confidence: parseInt(params.confidence as string, 10) || 0,
+        skinType: (params.skinType as string) || 'Unknown',
+        severity: (params.severity as string)?.toUpperCase() as Severity || 'MILD',
+        imageUri: (params.imageUri as string) || '',
+        detections: detections, 
+      };
+
+      console.log("📦 Saving Skin Result...");
+      const savedResult = await createReport(payload);
+
+      if (savedResult?.id && advice && advice.length > 0) {
+        console.log("📦 Saving Recommendations...");
+
+      const savePromises = advice.map((item: any) => {
+        const productId = item.tbl_recommendation_products?.[0]?.tbl_products?.id ?? null;
+        const lifestyleTipId = item.tbl_recommendation_lifestyle_tips?.[0]?.tbl_lifestyle_tips?.id ?? null;
+
+        console.log(`🔗 Linking Product: ${productId}, Tip: ${lifestyleTipId}`);
+
+        return saveUsersRecommendations(
+          item.id,          
+          productId,
+          lifestyleTipId,
+          user.id,          
+          savedResult.id    
+        );
+      });
+
+        await Promise.all(savePromises);
+        
+        hasSaved.current = true;
+        console.log("✅ SUCCESS: Full Journey Saved.");
+        Alert.alert("Journey Started!", "Your skin analysis and regimen have been saved to your profile.");
+        router.replace("/(tabs)/home");
+      }
+
+    } catch (error) {
+      console.error("❌ SAVE FAILED:", error);
+      Alert.alert("Error", "We couldn't save your journey. Please try again.");
+    }
   };
 
-  if (loading) {
+  if (loading || isSavingResult) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>ANALYZING SKIN DATA...</Text>
+        <Text style={styles.loadingText}>
+          {isSavingResult ? "SYNCING YOUR REGIMEN..." : "ANALYZING SKIN DATA..."}
+        </Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+   <SafeAreaView style={styles.container} edges={["top"]}>
       <Header onBack={goBack} />
 
       <ScrollView
@@ -90,7 +138,7 @@ export default function RecommendationScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Analysis Results</Text>
+          <Text style={styles.heroTitle}>Derma Recommendation</Text>
           <Text style={styles.heroSubtitle}>Based on your recent scan, here is your personalized dermatological plan.</Text>
         </View>
 
@@ -98,18 +146,22 @@ export default function RecommendationScreen() {
           <View key={item.id ?? index} style={styles.card}>
             <ConditionHeader item={item} />
             <ContentSection item={item} />
-            <ProductSection item={item} onPress={(p: Product) => router.push({ pathname: "/product-detail", params: { data: JSON.stringify(p) } })} />
-            <LifestyleSection item={item} onPress={(l: LifestyleTip) => router.push({ pathname: "/lifestyle-detail", params: { tipData: JSON.stringify(l) } })} />
+            <ProductSection 
+              item={item} 
+              onPress={(p: Product) => router.push({ pathname: "/product-detail", params: { data: JSON.stringify(p) } })} 
+            />
+            <LifestyleSection 
+              item={item} 
+              onPress={(l: LifestyleTip) => router.push({ pathname: "/lifestyle-detail", params: { tipData: JSON.stringify(l) } })} 
+            />
           </View>
         ))}
       </ScrollView>
 
-      <BottomDock onHome={goHome} onStartJourney={startJourney} />
+      <BottomDock onHome={goHome} onStartJourney={saveUserResult} />
     </SafeAreaView>
   );
 }
-
-/* ================= REFINED COMPONENTS ================= */
 
 const Header = ({ onBack }: { onBack: () => void }) => (
   <View style={styles.appBar}>

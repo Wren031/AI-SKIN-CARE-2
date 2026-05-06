@@ -1,142 +1,256 @@
 import { THEMES } from '@/src/constants/themes';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native'; // Ensure this is imported
-import { format } from 'date-fns';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import { useSkinHistory } from '../hooks/useSkinHistory';
 
-const SKIN_THEME = THEMES.DERMA_AI;
-const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
+import { useProfileData } from '@/src/features/auth/hooks/useProfileData'; // Added for name
+import HistoryCard from '../components/HistoryCard';
+import { use_skin_result } from '../hooks/use_skin_result';
+import { users_skin_result } from '../types/users_skin_result';
+
+const { COLORS, RADIUS, SHADOWS } = THEMES.DERMA_AI;
+
+type FilterType = 'ALL' | 'MONTH' | '2W';
 
 export default function HistoryScreen() {
-  const { history, isLoading, stats, refresh } = useSkinHistory();
-  const navigation = useNavigation<any>();
+  const [history, setHistory] = useState<users_skin_result[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<FilterType>('ALL');
 
-  const getStatusColor = (severity: string) => {
-    const sev = severity?.toLowerCase() || 'low';
-    if (['severe', 'high'].includes(sev)) return COLORS.ACCENT;
-    if (['moderate', 'medium'].includes(sev)) return COLORS.PRIMARY;
-    return COLORS.SUCCESS;
+  const { profile } = useProfileData(); // Get profile for the name
+  const {
+    fetchUserHistory,
+    removeReport,
+    deleteAllReports,
+    isLoading
+  } = use_skin_result();
+
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const data = await fetchUserHistory();
+      setHistory(data || []);
+    } catch (err) {
+      console.error('[HistoryScreen] Error loading data:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchUserHistory]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // ✅ FILTER + SEARCH LOGIC
+  const filteredHistory = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    let filtered = [...history];
+
+    const now = new Date();
+
+    // 🔹 MONTH FILTER
+    if (filter === 'MONTH') {
+      filtered = filtered.filter(item => {
+        const date = new Date(item.created_at);
+        return (
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()
+        );
+      });
+    }
+
+    // 🔹 LAST 2 WEEKS FILTER
+    if (filter === '2W') {
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(now.getDate() - 14);
+
+      filtered = filtered.filter(item => {
+        const date = new Date(item.created_at);
+        return date >= twoWeeksAgo;
+      });
+    }
+
+    // 🔹 SEARCH FILTER
+    if (q) {
+      filtered = filtered.filter(item =>
+        item.skin_type?.toLowerCase().includes(q) ||
+        item.severity?.toLowerCase().includes(q)
+      );
+    }
+
+    return filtered;
+  }, [history, searchQuery, filter]);
+
+  const handleDelete = (id: number) => {
+    Alert.alert("Delete Analysis", "This record will be permanently removed.", [
+      { text: "Keep", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          const ok = await removeReport(id);
+          if (ok) setHistory(prev => prev.filter(i => i.id !== id));
+        }
+      }
+    ]);
+  };
+
+  const handleDeleteAll = () => {
+    if (history.length === 0) return;
+
+    Alert.alert(
+      "Reset History",
+      "Are you sure you want to clear all records?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Everything",
+          style: "destructive",
+          onPress: async () => {
+            const ok = await deleteAllReports();
+            if (ok) setHistory([]);
+          }
+        }
+      ]
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+      <StatusBar barStyle="dark-content" />
+
+      {/* HEADER */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.preTitle}>Your Neural</Text>
+            <Text style={styles.title}>Skin History</Text>
+          </View>
+
+          {history.length > 0 && (
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleDeleteAll}
+            >
+              <Ionicons name="trash-bin-outline" size={20} color={COLORS.PRIMARY} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* SEARCH */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={18} color={COLORS.TEXT_SECONDARY} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search skin type or severity..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={COLORS.TEXT_SECONDARY}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={COLORS.TEXT_SECONDARY} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* FILTER BAR */}
+        <View style={styles.filterBar}>
+          {(['ALL', 'MONTH', '2W'] as FilterType[]).map(type => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => setFilter(type)}
+              style={[
+                styles.filterBtn,
+                filter === type && styles.filterBtnActive
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  filter === type && styles.filterTextActive
+                ]}
+              >
+                {type === 'ALL' ? 'All' : type === 'MONTH' ? 'This Month' : '2 Weeks'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* CONTENT */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          filteredHistory.length === 0 && styles.centerEmpty
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={isLoading} 
-            onRefresh={refresh} 
-            tintColor={COLORS.PRIMARY} 
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+            tintColor={COLORS.PRIMARY}
           />
         }
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Dermal Archive</Text>
-            <Text style={styles.subText}>Historical analysis & tracking</Text>
-          </View>
-          <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={20} color={COLORS.TEXT_PRIMARY} />
-            {stats.alerts > 0 && <View style={styles.notifDot} />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats Summary Card */}
-        <View style={styles.summaryCard}>
-          <View style={styles.cardHeader}>
-             <Ionicons name="stats-chart" size={14} color={COLORS.PRIMARY} />
-             <Text style={styles.cardTitle}>CLINICAL DIAGNOSTIC SUMMARY</Text>
-          </View>
-          
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.scans}</Text>
-              <Text style={styles.statLabel}>Scans</Text>
+        {isLoading && !refreshing ? (
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        ) : filteredHistory.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+                <Ionicons 
+                    name={searchQuery ? "search-outline" : "sparkles"} 
+                    size={40} 
+                    color={COLORS.PRIMARY} 
+                />
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.avgHealth}%</Text>
-              <Text style={styles.statLabel}>Health Avg</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={stats.alerts > 0 ? [styles.statNumber, {color: COLORS.ACCENT}] : styles.statNumber}>
-                {stats.alerts.toString().padStart(2, '0')}
-              </Text>
-              <Text style={styles.statLabel}>Alerts</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <TouchableOpacity style={styles.filterBtn} onPress={refresh}>
-            <Ionicons name="refresh-outline" size={14} color={COLORS.ACCENT} />
-            <Text style={styles.filterLink}>Sync</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {isLoading && history.length === 0 ? (
-          <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 50 }} />
-        ) : history.length === 0 ? (
-          <View style={styles.emptyState}>
-             <Ionicons name="cloud-offline-outline" size={48} color={COLORS.BORDER} />
-             <Text style={styles.emptyText}>No analysis history found.</Text>
+            <Text style={styles.emptyTitle}>
+              {searchQuery ? "No Results Found" : `Good day, ${profile?.first_name || 'User'}!`}
+            </Text>
+            <Text style={styles.emptySub}>
+              {searchQuery
+                ? "Try adjusting your search or filters."
+                : "Please scan your face to start building your skin health history."}
+            </Text>
+            {!searchQuery && (
+                <TouchableOpacity 
+                    style={styles.scanNowBtn}
+                    onPress={() => router.push('/')}
+                >
+                    <Text style={styles.scanNowText}>Scan Now</Text>
+                </TouchableOpacity>
+            )}
           </View>
         ) : (
-          history.map((item) => {
-            const statusColor = getStatusColor(item.overall_severity);
-
-            return (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.itemWrapper}
-              activeOpacity={0.7}
-              onPress={() => router.push({
-                pathname: '/view-details-result',
-                params: { analysis: JSON.stringify(item) }
-              })}
-            >
-              <View style={styles.historyItem}>
-                <View style={[styles.iconContainer, { backgroundColor: statusColor + '15' }]}>
-                  <Ionicons name="barcode-outline" size={20} color={statusColor} />
-                </View>
-                
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle}>{item.skin_type} Analysis</Text>
-                  <View style={styles.itemMeta}>
-                    <Text style={styles.itemDate}>
-                      {format(new Date(item.created_at), 'MMM dd • h:mm a')}
-                    </Text>
-                    <View style={styles.dotSeparator} />
-                    <Text style={[styles.statusText, { color: statusColor }]}>
-                      {item.overall_severity}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.scoreTag}>
-                  <Text style={styles.scoreText}>{Math.round(item.score)}%</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.BORDER} />
-              </View>
-            </TouchableOpacity>
-            );
-          })
+          filteredHistory.map(item => (
+            <HistoryCard
+              key={item.id}
+              item={item}
+              onPress={(selected) =>
+                router.push({
+                  pathname: '/view-details-result',
+                  params: { ida: selected.id.toString() }
+                })
+              }
+              onDelete={() => handleDelete(item.id)}
+            />
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -144,43 +258,138 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
-  greeting: { fontSize: 24, fontWeight: '900', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5 },
-  subText: { fontSize: 13, color: COLORS.TEXT_SECONDARY, marginTop: 2, fontWeight: '500' },
-  notificationBtn: { backgroundColor: COLORS.WHITE, width: 42, height: 42, borderRadius: RADIUS.S, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.BORDER, ...SHADOWS.SOFT },
-  notifDot: { position: 'absolute', top: 10, right: 10, width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.PRIMARY, borderWidth: 1.5, borderColor: COLORS.WHITE },
-  summaryCard: { backgroundColor: COLORS.TEXT_PRIMARY, borderRadius: RADIUS.L, padding: 20, marginBottom: 30, ...SHADOWS.SOFT },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 18 },
-  cardTitle: { color: COLORS.WHITE, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, opacity: 0.7 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10 },
-  statItem: { alignItems: 'center', flex: 1 },
-  statNumber: { color: COLORS.WHITE, fontSize: 24, fontWeight: '800' },
-  statLabel: { color: COLORS.WHITE, fontSize: 11, marginTop: 4, opacity: 0.6, fontWeight: '600' },
-  statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: COLORS.TEXT_PRIMARY },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.WHITE, paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.S, borderWidth: 1, borderColor: COLORS.BORDER },
-  filterLink: { fontSize: 12, color: COLORS.ACCENT, fontWeight: '700' },
-  itemWrapper: {
-    backgroundColor: COLORS.WHITE,
-    borderRadius: RADIUS.M,
+  filterBar: {
+    flexDirection: 'row',
+    marginHorizontal: 24,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
+    backgroundColor: COLORS.INPUT_BG,
+    borderRadius: RADIUS.S,
+    padding: 4,
+  },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: RADIUS.S,
+    alignItems: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: COLORS.WHITE,
     ...SHADOWS.SOFT,
   },
-  historyItem: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  iconContainer: { width: 46, height: 46, borderRadius: RADIUS.S, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  itemInfo: { flex: 1 },
-  itemTitle: { fontSize: 15, fontWeight: '800', color: COLORS.TEXT_PRIMARY, marginBottom: 2 },
-  itemMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemDate: { fontSize: 12, color: COLORS.TEXT_SECONDARY, fontWeight: '500' },
-  dotSeparator: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: COLORS.BORDER },
-  statusText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  scoreTag: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: COLORS.BACKGROUND, borderRadius: RADIUS.S, marginRight: 8 },
-  scoreText: { fontSize: 12, fontWeight: '800', color: COLORS.TEXT_PRIMARY },
-  emptyState: { alignItems: 'center', marginTop: 60, opacity: 0.5 },
-  emptyText: { marginTop: 10, fontWeight: '600', color: COLORS.TEXT_SECONDARY },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.TEXT_SECONDARY,
+  },
+  filterTextActive: {
+    color: COLORS.PRIMARY,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.BACKGROUND,
+  },
+  header: {
+    backgroundColor: COLORS.WHITE,
+    paddingTop: 8,
+    borderBottomLeftRadius: RADIUS.M,
+    borderBottomRightRadius: RADIUS.M,
+    ...SHADOWS.SOFT,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    marginBottom: 20,
+  },
+  preTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.ACCENT,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: COLORS.TEXT_PRIMARY,
+    letterSpacing: -0.5,
+  },
+  resetButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.S,
+    backgroundColor: `${COLORS.PRIMARY}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  searchWrapper: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.INPUT_BG,
+    borderRadius: RADIUS.S,
+    paddingHorizontal: 16,
+    height: 52,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: COLORS.TEXT_PRIMARY,
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 120,
+  },
+  centerEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingBottom: 60,
+  },
+  emptyIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: `${COLORS.PRIMARY}10`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.TEXT_PRIMARY,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 15,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 22,
+    maxWidth: '85%',
+  },
+  scanNowBtn: {
+    marginTop: 24,
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: RADIUS.M,
+    ...SHADOWS.SOFT,
+  },
+  scanNowText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
 });

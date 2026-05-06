@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { AnalysisResult, SkinDetection } from '../types/analysis';
 
 export const skinService = {
-  // SAVE: One result + Many conditions
+  
   async saveAnalysisRecord(userId: string, analysis: AnalysisResult) {
     const { data: result, error: resErr } = await supabase
       .from('tbl_skin_result')
@@ -16,7 +16,6 @@ export const skinService = {
         image_url: analysis.imageUri
       }])
       .select().single();
-
     if (resErr) throw resErr;
 
     if (analysis.detections?.length > 0) {
@@ -32,7 +31,6 @@ export const skinService = {
     return result;
   },
 
-  // GET: History with conditions joined
   async getUserHistory(userId: string) {
     const { data, error } = await supabase
       .from('tbl_skin_result')

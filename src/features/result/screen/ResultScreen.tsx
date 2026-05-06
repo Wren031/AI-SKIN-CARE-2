@@ -37,8 +37,11 @@ const ImpactCircle = ({ percentage, color }: { percentage: number, color: string
 
 export default function ResultScreen() {
 
+
+
   const { analysis, isSaving, getSeverityStyles, handleExit, handleShowRecommendations } = useSkinAnalysis();
   const sevStyle = getSeverityStyles(analysis.severity);
+
 
 
   return (
