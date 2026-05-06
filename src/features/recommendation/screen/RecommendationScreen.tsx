@@ -28,7 +28,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { THEMES } from "@/src/constants/themes";
 import { supabase } from "../../lib/supabase"; // Ensure you have access to supabase auth
 import { useRecommendations } from "../hooks/useRecommendations";
-import { useUserSkinResult } from "../hooks/useUserSkinResult";
+
+import { useUserSkinResult } from "../services/userSkinResultService";
 import { LifestyleTip, Product } from "../types/Product";
 import { Severity, UsersSkinResult } from "../types/UsersSkinResult";
 

@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import {
-  ArrowUpRight,
   Bell,
   Camera,
+  ChevronRight,
   Image as ImageIcon,
   ScanFace,
   Sparkles,
-  X
+  X,
 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -29,52 +29,100 @@ import { THEMES } from '@/src/constants/themes';
 import { useProfileData } from '@/src/features/auth/hooks/useProfileData';
 import { useSkinProgress } from '../../progress/hooks/useSkinProgress';
 
-// Constants
-const SKIN_THEME = THEMES.DERMA_AI;
-const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// --- Types & Constants ---
+const { COLORS, RADIUS, SHADOWS } = THEMES.DERMA_AI;
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
-export default function HomeScreen() {
-  const router = useRouter();
-  const { profile, loading: profileLoading } = useProfileData();
-  
-  // REAL-TIME DATA
-  const { 
-    currentScore, 
-    scoreDiff, 
-    loading: progressLoading,
-    total: totalAssessments
-  } = useSkinProgress();
+interface SourceOptionProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  themeColor: string;
+}
 
-  const [tasks, setTasks] = useState([
-    { id: '1', title: "Purifying Cleanser", step: "STEP 01", isDone: true, day: 'Mon', category: 'protocol' },
-    { id: '2', title: "Vitamin C Serum", step: "STEP 02", isDone: false, day: 'Mon', category: 'protocol' },
-    { id: 'l1', title: "Drink 2L Water", step: "HYDRATION", isDone: false, day: 'Mon', category: 'lifestyle' },
-  ]);
+// --- Sub-Components ---
 
-  const [showOptions, setShowOptions] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(DAYS[new Date().getDay() - 1] || 'Mon');
-
-  // NEW USER LOGIC
-  const isNewUser = totalAssessments === 0;
-
-  // CIRCULAR PROGRESS CALCULATIONS
-  const size = 100;
-  const strokeWidth = 8;
+const ScoreProgress = ({ score }: { score: number }) => {
+  const size = 110;
+  const strokeWidth = 10;
   const center = size / 2;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const progressOffset = circumference - (currentScore / 100) * circumference;
 
-  const getStatusText = (score: number) => {
-    if (score >= 75) return 'OPTIMAL';
-    if (score >= 40) return 'STABLE';
-    return 'AT RISK';
-  };
+  const { offset, status } = useMemo(() => {
+    const progressOffset = circumference - (score / 100) * circumference;
+    let label = 'AT RISK';
+    if (score >= 75) label = 'OPTIMAL';
+    else if (score >= 40) label = 'STABLE';
+    
+    return { offset: progressOffset, status: label };
+  }, [score, circumference]);
 
-  const fullName = useMemo(() => 
-    `${profile?.first_name ?? 'User'} ${profile?.last_name ?? ''}`.trim(), 
-  [profile]);
+  const strokeColor = score >= 75 ? COLORS.SUCCESS : COLORS.PRIMARY;
+
+  return (
+    <View style={styles.circularContainer}>
+      <Svg width={size} height={size}>
+        <SvgCircle stroke={COLORS.INPUT_BG} fill="none" cx={center} cy={center} r={radius} strokeWidth={strokeWidth} />
+        <SvgCircle
+          stroke={strokeColor}
+          fill="none"
+          cx={center}
+          cy={center}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${center}, ${center}`}
+        />
+      </Svg>
+      <View style={styles.scoreTextOverlay}>
+        <Text style={styles.scoreValue}>{score}</Text>
+        <Text style={styles.scoreLabel}>{status}</Text>
+      </View>
+    </View>
+  );
+};
+
+const SourceOption = ({ icon, title, subtitle, onPress, themeColor }: SourceOptionProps) => (
+  <TouchableOpacity 
+    style={styles.optionBtn} 
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.optionIcon, { backgroundColor: `${themeColor}15` }]}>
+      {icon}
+    </View>
+    <Text style={styles.optionText}>{title}</Text>
+    <Text style={styles.optionSub}>{subtitle}</Text>
+  </TouchableOpacity>
+);
+
+// --- Main Screen ---
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const [showOptions, setShowOptions] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>(DAYS[new Date().getDay() - 1] || 'Mon');
+
+  const { profile, loading: profileLoading } = useProfileData();
+  const { 
+    currentScore, 
+    scoreDiff, 
+    loading: progressLoading, 
+    total: totalAssessments 
+  } = useSkinProgress();
+
+  const isNewUser = totalAssessments === 0;
+  const fullName = `${profile?.first_name ?? 'User'} ${profile?.last_name ?? ''}`.trim();
+
+  const handleNavigation = useCallback((path: string) => {
+    setShowOptions(false);
+    router.push(path as any);
+  }, [router]);
 
   if (profileLoading || progressLoading) {
     return (
@@ -87,18 +135,33 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* ANALYSIS MODAL */}
-      <Modal visible={showOptions} transparent animationType="slide">
+      <Modal visible={showOptions} transparent animationType="fade" onRequestClose={() => setShowOptions(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowOptions(false)}>
           <View style={styles.sheetContainer}>
+            <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>ANALYSIS SOURCE</Text>
-              <TouchableOpacity onPress={() => setShowOptions(false)}><X size={20} color="#64748B" /></TouchableOpacity>
+              <Text style={styles.sheetTitle}>SELECT ANALYSIS SOURCE</Text>
+              <TouchableOpacity onPress={() => setShowOptions(false)}>
+                <X size={20} color={COLORS.TEXT_SECONDARY} />
+              </TouchableOpacity>
             </View>
             <View style={styles.sheetOptions}>
-              <SourceOption icon={<Camera size={26} color={COLORS.ACCENT} />} title="Live Scan" subtitle="Real-time AI" themeColor={COLORS.ACCENT} onPress={() => { setShowOptions(false); router.push('/camera-scan'); }} />
-              <SourceOption icon={<ImageIcon size={26} color={COLORS.PRIMARY} />} title="Upload" subtitle="Static Analysis" themeColor={COLORS.PRIMARY} onPress={() => { setShowOptions(false); router.push('/upload-image'); }} />
+              <SourceOption
+                icon={<Camera size={24} color={COLORS.ACCENT} />}
+                title="Live Scan"
+                subtitle="Real-time AI"
+                themeColor={COLORS.ACCENT}
+                onPress={() => handleNavigation('/camera-scan')}
+              />
+              <SourceOption
+                icon={<ImageIcon size={24} color={COLORS.PRIMARY} />}
+                title="Upload"
+                subtitle="From Gallery"
+                themeColor={COLORS.PRIMARY}
+                onPress={() => handleNavigation('/upload-image')}
+              />
             </View>
           </View>
         </Pressable>
@@ -107,12 +170,20 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* APP BAR */}
         <View style={styles.appBar}>
-          <TouchableOpacity style={styles.profileTrigger} onPress={() => router.push('/personal-info')}>
+          <TouchableOpacity 
+            style={styles.profileTrigger} 
+            onPress={() => router.push('/personal-info' as any)}
+          >
             <View style={styles.avatarWrapper}>
-              <Image source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${fullName}&background=6366F1&color=fff` }} style={styles.avatar} />
+              <Image
+                source={{ uri: profile?.avatar_url || `https://ui-avatars.com/api/?name=${fullName}&background=FB7185&color=fff` }}
+                style={styles.avatar}
+              />
             </View>
             <View>
-              <Text style={styles.dateLabel}>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}</Text>
+              <Text style={styles.dateLabel}>
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}
+              </Text>
               <Text style={styles.greeting}>Hello, {profile?.first_name || 'User'}</Text>
             </View>
           </TouchableOpacity>
@@ -126,71 +197,74 @@ export default function HomeScreen() {
         <View style={styles.mainCard}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.cardTag}>Biometric Grade</Text>
-              <Text style={styles.cardTitle}>Skin Health Score</Text>
+              <Text style={styles.cardTag}>DERMA_AI METRICS</Text>
+              <Text style={styles.cardTitle}>Vitality Score</Text>
             </View>
             {!isNewUser && scoreDiff !== 0 && (
-              <View style={[styles.trendBadge, { backgroundColor: scoreDiff > 0 ? '#10B98115' : '#EF444415' }]}>
-                <ArrowUpRight size={14} color={scoreDiff > 0 ? '#10B981' : '#EF4444'} />
-                <Text style={[styles.trendText, { color: scoreDiff > 0 ? '#10B981' : '#EF4444' }]}>{scoreDiff > 0 ? '+' : ''}{scoreDiff}%</Text>
+              <View style={[styles.trendBadge, { backgroundColor: scoreDiff > 0 ? '#ECFDF5' : '#FFF1F2' }]}>
+                <Text style={[styles.trendText, { color: scoreDiff > 0 ? COLORS.SUCCESS : COLORS.PRIMARY }]}>
+                  {scoreDiff > 0 ? '▲' : '▼'} {Math.abs(scoreDiff)}%
+                </Text>
               </View>
             )}
           </View>
-          
+
           <View style={styles.scoreRow}>
             {isNewUser ? (
               <View style={styles.emptyStateContainer}>
                 <View style={styles.welcomeIconCircle}>
-                   <Sparkles size={30} color={COLORS.PRIMARY} />
+                  <Sparkles size={28} color={COLORS.PRIMARY} />
                 </View>
                 <View style={styles.welcomeTextContainer}>
-                   <Text style={styles.welcomeTitle}>Good day, {profile?.first_name || 'User'}!</Text>
-                   <Text style={styles.welcomeSubtitle}>Please scan your face to see your skin health analysis.</Text>
+                  <Text style={styles.welcomeTitle}>Initial Scan Required</Text>
+                  <Text style={styles.welcomeSubtitle}>Initialize your profile with a high-precision skin scan.</Text>
                 </View>
               </View>
             ) : (
               <>
-                <View style={styles.circularContainer}>
-                  <Svg width={size} height={size}>
-                    <SvgCircle stroke="#F1F5F9" fill="none" cx={center} cy={center} r={radius} strokeWidth={strokeWidth} />
-                    <SvgCircle 
-                      stroke={currentScore >= 75 ? '#10B981' : COLORS.PRIMARY} 
-                      fill="none" cx={center} cy={center} r={radius} 
-                      strokeWidth={strokeWidth} strokeDasharray={circumference} 
-                      strokeDashoffset={progressOffset} strokeLinecap="round" 
-                      rotation="-90" origin={`${center}, ${center}`} 
-                    />
-                  </Svg>
-                  <View style={styles.scoreTextOverlay}>
-                    <Text style={styles.scoreValue}>{currentScore}</Text>
-                    <Text style={styles.scoreLabel}>{getStatusText(currentScore)}</Text>
-                  </View>
+                <ScoreProgress score={currentScore} />
+                <View style={styles.scoreInfoContainer}>
+                  <Text style={styles.scoreDetails}>
+                    {scoreDiff > 0
+                      ? `Significant progress. Your score increased by ${scoreDiff}% since last check.`
+                      : `Your health status is stable. Consistent daily routine is highly recommended.`}
+                  </Text>
+                  <TouchableOpacity style={styles.textLink}>
+                    <Text style={styles.textLinkStyle}>View Details</Text>
+                    <ChevronRight size={14} color={COLORS.ACCENT} />
+                  </TouchableOpacity>
                 </View>
-
-                <Text style={styles.scoreDetails}>
-                  {scoreDiff > 0 
-                    ? `Impressed! Your health score improved by ${scoreDiff}% since your last assessment.`
-                    : `Your skin is currently ${getStatusText(currentScore).toLowerCase()}. Maintain your daily routine.`}
-                </Text>
               </>
             )}
           </View>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => setShowOptions(true)}>
-            <ScanFace size={22} color="#FFF" />
+          <TouchableOpacity 
+            style={styles.primaryBtn} 
+            onPress={() => setShowOptions(true)}
+            activeOpacity={0.8}
+          >
+            <ScanFace size={20} color="#FFF" />
             <Text style={styles.primaryBtnText}>
-              {isNewUser ? "Get My First Analysis" : "Start New Analysis"}
+              {isNewUser ? "Begin First Analysis" : "New AI Assessment"}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* WEEKLY SCHEDULE */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Weekly Schedule</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionHeader}>WEEKLY PROTOCOL</Text>
+            <TouchableOpacity><Text style={styles.viewAllText}>Full Schedule</Text></TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScroll}>
             {DAYS.map((day) => (
-              <TouchableOpacity key={day} onPress={() => setSelectedDay(day)} style={[styles.dayCard, selectedDay === day && styles.dayCardActive]}>
+              <TouchableOpacity
+                key={day}
+                onPress={() => setSelectedDay(day)}
+                style={[styles.dayCard, selectedDay === day && styles.dayCardActive]}
+              >
                 <Text style={[styles.dayText, selectedDay === day && styles.dayTextActive]}>{day}</Text>
+                {selectedDay === day && <View style={styles.activeDayDot} />}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -198,84 +272,86 @@ export default function HomeScreen() {
 
         {/* AI INSIGHT */}
         <View style={styles.insightBox}>
-          <Sparkles size={18} color={COLORS.PRIMARY} />
+          <View style={styles.insightIconBg}>
+            <Sparkles size={16} color={COLORS.ACCENT} />
+          </View>
           <Text style={styles.insightText}>
-            <Text style={styles.boldPrimary}>AI_NOTE:</Text> {isNewUser ? "Unlock personalized insights by completing your first scan." : "Your hydration levels are peaking. Keep using your cleanser at night."}
+            <Text style={styles.boldAccent}>AI INSIGHT:</Text> {isNewUser 
+              ? "Unlock personalized biometric data by completing your first analysis." 
+              : "Routine adherence is at 85%. Focus on hydration steps this evening."}
           </Text>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// Sub-components
-const SourceOption = ({ icon, title, subtitle, onPress, themeColor }: any) => (
-  <TouchableOpacity style={styles.optionBtn} onPress={onPress}>
-    <View style={[styles.optionIcon, { backgroundColor: `${themeColor}15` }]}>{icon}</View>
-    <Text style={styles.optionText}>{title}</Text>
-    <Text style={styles.optionSub}>{subtitle}</Text>
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 12 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 12 },
   
-  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  appBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
   profileTrigger: { flexDirection: 'row', alignItems: 'center' },
-  avatarWrapper: { padding: 2, borderRadius: 18, borderWidth: 1, borderColor: '#E2E8F0', marginRight: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#F1F5F9' },
-  dateLabel: { fontSize: 10, color: '#64748B', fontWeight: '800', letterSpacing: 1 },
-  greeting: { fontSize: 20, fontWeight: '900', color: '#0F172A' },
-  iconCircle: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', ...SHADOWS.SOFT },
-  dotIndicator: { position: 'absolute', top: 12, right: 12, width: 7, height: 7, borderRadius: 4, backgroundColor: '#FB7185', borderWidth: 1.5, borderColor: '#FFF' },
+  avatarWrapper: { padding: 2, borderRadius: 16, marginRight: 12 },
+  avatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: COLORS.INPUT_BG },
+  dateLabel: { fontSize: 10, color: COLORS.TEXT_SECONDARY, fontWeight: '800', letterSpacing: 0.5 },
+  greeting: { fontSize: 20, fontWeight: '800', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5 },
+  iconCircle: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.WHITE, justifyContent: 'center', alignItems: 'center', ...SHADOWS.SOFT },
+  dotIndicator: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.PRIMARY, borderWidth: 2, borderColor: COLORS.WHITE },
 
-  mainCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 24, ...SHADOWS.SOFT },
+  mainCard: { backgroundColor: COLORS.WHITE, borderRadius: RADIUS.M, padding: 24, ...SHADOWS.GLOW },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  cardTag: { fontSize: 10, fontWeight: '900', color: COLORS.ACCENT, letterSpacing: 1.2 },
-  cardTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', marginTop: 2 },
-  trendBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  trendText: { fontSize: 12, fontWeight: '800', marginLeft: 4 },
+  cardTag: { fontSize: 10, fontWeight: '800', color: COLORS.ACCENT, letterSpacing: 1 },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: COLORS.TEXT_PRIMARY, marginTop: 2 },
+  trendBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  trendText: { fontSize: 12, fontWeight: '700' },
 
   scoreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  circularContainer: { width: 100, height: 100, justifyContent: 'center', alignItems: 'center' },
+  circularContainer: { width: 110, height: 110, justifyContent: 'center', alignItems: 'center' },
   scoreTextOverlay: { position: 'absolute', alignItems: 'center' },
-  scoreValue: { fontSize: 28, fontWeight: '900', color: '#0F172A' },
-  scoreLabel: { fontSize: 8, fontWeight: '800', color: '#94A3B8', marginTop: -2 },
-  scoreDetails: { flex: 1, marginLeft: 20, fontSize: 14, color: '#64748B', lineHeight: 20 },
+  scoreValue: { fontSize: 32, fontWeight: '800', color: COLORS.TEXT_PRIMARY },
+  scoreLabel: { fontSize: 9, fontWeight: '800', color: COLORS.TEXT_SECONDARY, marginTop: -2 },
+  scoreInfoContainer: { flex: 1, marginLeft: 20 },
+  scoreDetails: { fontSize: 14, color: COLORS.TEXT_SECONDARY, lineHeight: 20 },
+  textLink: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  textLinkStyle: { fontSize: 13, fontWeight: '700', color: COLORS.ACCENT, marginRight: 2 },
 
-  // EMPTY STATE STYLES
-  emptyStateContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 16 },
-  welcomeIconCircle: { width: 55, height: 55, borderRadius: 18, backgroundColor: '#F0F9FF', justifyContent: 'center', alignItems: 'center' },
+  emptyStateContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, gap: 15 },
+  welcomeIconCircle: { width: 50, height: 50, borderRadius: 15, backgroundColor: `${COLORS.PRIMARY}10`, justifyContent: 'center', alignItems: 'center' },
   welcomeTextContainer: { flex: 1 },
-  welcomeTitle: { fontSize: 17, fontWeight: '900', color: '#0F172A' },
-  welcomeSubtitle: { fontSize: 13, color: '#64748B', lineHeight: 18, marginTop: 2 },
+  welcomeTitle: { fontSize: 18, fontWeight: '800', color: COLORS.TEXT_PRIMARY },
+  welcomeSubtitle: { fontSize: 13, color: COLORS.TEXT_SECONDARY, lineHeight: 18, marginTop: 2 },
 
-  primaryBtn: { backgroundColor: COLORS.PRIMARY, flexDirection: 'row', height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', gap: 10 },
-  primaryBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+  primaryBtn: { backgroundColor: COLORS.PRIMARY, flexDirection: 'row', height: 56, borderRadius: RADIUS.S, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  primaryBtnText: { color: COLORS.WHITE, fontSize: 16, fontWeight: '700' },
 
-  dayCard: { width: 55, height: 65, backgroundColor: '#FFF', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
-  dayCardActive: { borderColor: COLORS.PRIMARY, backgroundColor: `${COLORS.PRIMARY}08` },
-  dayText: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
+  section: { marginTop: 25 },
+  sectionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 15 },
+  sectionHeader: { fontSize: 11, fontWeight: '800', color: COLORS.TEXT_SECONDARY, letterSpacing: 1 },
+  viewAllText: { fontSize: 12, fontWeight: '700', color: COLORS.ACCENT },
+  daysScroll: { gap: 10, paddingBottom: 5 },
+  dayCard: { width: 50, height: 60, backgroundColor: COLORS.WHITE, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.BORDER },
+  dayCardActive: { borderColor: COLORS.PRIMARY },
+  dayText: { fontSize: 13, fontWeight: '700', color: COLORS.TEXT_SECONDARY },
   dayTextActive: { color: COLORS.PRIMARY },
-
-  section: { marginTop: 30 },
-  sectionHeader: { fontSize: 12, fontWeight: '900', color: '#64748B', letterSpacing: 1, marginBottom: 15 },
+  activeDayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.PRIMARY, marginTop: 4 },
   
-  insightBox: { marginTop: 30, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', padding: 20, borderRadius: 20, gap: 12, borderWidth: 1, borderColor: '#BAE6FD' },
-  insightText: { flex: 1, fontSize: 13, color: '#0369A1', lineHeight: 20 },
-  boldPrimary: { fontWeight: '900' },
+  insightBox: { marginTop: 25, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.INPUT_BG, padding: 16, borderRadius: RADIUS.S, gap: 12, borderWidth: 1, borderColor: COLORS.BORDER },
+  insightIconBg: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.WHITE, justifyContent: 'center', alignItems: 'center' },
+  insightText: { flex: 1, fontSize: 13, color: COLORS.TEXT_PRIMARY, lineHeight: 19 },
+  boldAccent: { fontWeight: '800', color: COLORS.ACCENT },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'flex-end' },
-  sheetContainer: { backgroundColor: '#FFF', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30, paddingBottom: 50 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  sheetTitle: { fontSize: 12, fontWeight: '900', color: '#94A3B8', letterSpacing: 1 },
-  sheetOptions: { flexDirection: 'row', gap: 15 },
-  optionBtn: { flex: 1, backgroundColor: '#F8FAFC', padding: 20, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
-  optionIcon: { width: 55, height: 55, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  optionText: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
-  optionSub: { fontSize: 10, color: '#94A3B8' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
+  sheetContainer: { backgroundColor: COLORS.WHITE, borderTopLeftRadius: RADIUS.M, borderTopRightRadius: RADIUS.M, padding: 24, paddingBottom: 40 },
+  sheetHandle: { width: 40, height: 4, backgroundColor: COLORS.BORDER, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sheetTitle: { fontSize: 11, fontWeight: '800', color: COLORS.TEXT_SECONDARY, letterSpacing: 0.5 },
+  sheetOptions: { flexDirection: 'row', gap: 12 },
+  optionBtn: { flex: 1, backgroundColor: COLORS.INPUT_BG, padding: 20, borderRadius: RADIUS.S, alignItems: 'center' },
+  optionIcon: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  optionText: { fontSize: 15, fontWeight: '700', color: COLORS.TEXT_PRIMARY },
+  optionSub: { fontSize: 10, color: COLORS.TEXT_SECONDARY, marginTop: 2 },
 });

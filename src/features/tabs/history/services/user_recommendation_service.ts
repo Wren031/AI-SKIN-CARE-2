@@ -1,5 +1,6 @@
 import { supabase } from "@/src/features/lib/supabase";
 
+
 export const user_recommendation_service = {
   async get_recommendation_by_id(ida: string): Promise<any | null> {
     try {
@@ -10,7 +11,9 @@ export const user_recommendation_service = {
         .select(`
           *,
           recommendation:recommendation_id (
-            *,
+            id,
+            treatment,
+            precautions,
             recommendation_products:tbl_recommendation_products (
               product:product_id (*)
             ),
@@ -19,7 +22,11 @@ export const user_recommendation_service = {
             )
           ),
           skin_result:skin_result_id (
-            *,
+            id,
+            score,
+            skin_type,
+            overall_severity,
+            image_url,
             conditions:tbl_users_skin_result_condition (*)
           )
         `)
@@ -29,7 +36,7 @@ export const user_recommendation_service = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error("[Service] Error fetching recommendation details:", error);
+      console.error("[Service] Error:", error);
       throw error;
     }
   }

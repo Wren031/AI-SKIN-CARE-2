@@ -1,7 +1,7 @@
 import { THEMES } from '@/src/constants/themes';
 import {
-    Camera,
-    CheckCircle2
+  Camera,
+  CheckCircle2
 } from 'lucide-react-native';
 import React from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { progressService } from '../services/progressService';
 import { Progress } from '../types/Progress';
 
-export type FilterType = 'Monthly' | 'Bi-Weekly';
+export type FilterType = 'Monthly' | 'Yearly';
 
 export const useSkinProgress = () => {
   const [loading, setLoading] = useState(true);
@@ -11,27 +11,40 @@ export const useSkinProgress = () => {
     raw: [] as Progress[],
     total: 0,
     currentScore: 0,
-    scoreDiff: 0, // Bag-o nga field
-    daysRemaining: 0 as number | null,
+    scoreDiff: 0,
+    daysRemaining: null as number | null,
   });
 
   const loadProgressData = useCallback(async () => {
     try {
       setLoading(true);
       const user = await progressService.getCurrentUser();
-      
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) return;
 
       const result = await progressService.fetchSkinResults(user.id);
+      
+      // --- LOGIC: Calculate Next Assessment (14 days from last scan) ---
+      let daysLeft = null;
+      if (result.entries.length > 0) {
+        const lastScan = [...result.entries].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )[0];
+        
+        const lastScanDate = new Date(lastScan.created_at);
+        const nextScanDate = new Date(lastScanDate);
+        nextScanDate.setDate(lastScanDate.getDate() + 14); // Add 14 days
+        
+        const today = new Date();
+        const diffTime = nextScanDate.getTime() - today.getTime();
+        daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+
       setData({
         raw: result.entries,
         total: result.totalCount,
-        currentScore: result.currentScore,
-        scoreDiff: result.scoreDiff, // I-save ang difference gikan sa service
-        daysRemaining: result.daysRemaining,
+        currentScore: result.currentScore, // This is already the latest from your service
+        scoreDiff: result.scoreDiff,
+        daysRemaining: daysLeft,
       });
     } catch (e) {
       console.error("[useSkinProgress] Error:", e);
@@ -44,52 +57,28 @@ export const useSkinProgress = () => {
     loadProgressData();
   }, [loadProgressData]);
 
-const chartData = useMemo(() => {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const currentMonthIndex = new Date().getMonth();
+  const chartData = useMemo(() => {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  if (filter === 'Monthly') {
-    return months.map((m, index) => {
-      // Filter entries para sa specific nga bulan
-      const entriesInMonth = data.raw.filter(
-        d => new Date(d.created_at).getMonth() === index
-      );
+    if (filter === 'Monthly') {
+      return months.map((m, index) => {
+        const entriesInMonth = data.raw.filter(d => new Date(d.created_at).getMonth() === index);
+        let score = 0;
+        if (entriesInMonth.length > 0) {
+          const sorted = [...entriesInMonth].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          score = sorted[sorted.length - 1].score;
+        }
+        return { value: score, label: m };
+      });
+    }
 
-      let score = 0;
+    return [...data.raw]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .map((item) => {
+        const date = new Date(item.created_at);
+        return { value: item.score, label: `${date.getDate()} ${months[date.getMonth()]}` };
+      });
+  }, [filter, data.raw]);
 
-      if (entriesInMonth.length > 0) {
-        // Kuhaon ang score sa pinaka-uwahi nga scan sa maong bulan
-        score = entriesInMonth[entriesInMonth.length - 1].score;
-      } 
-      
-      // FIX: Kung kini nga bulan mao ang "Current Month" ug naay currentScore, 
-      // siguraduhon nato nga 94 ang mugawas (currentScore gikan sa service)
-      if (index === currentMonthIndex && data.currentScore > 0) {
-        score = data.currentScore;
-      }
-
-      return { 
-        value: score, 
-        label: m,
-        // Optional: Ayaw i-show ang label kung zero ang score para limpyo ang chart
-        showLabel: score > 0 
-      };
-    });
-  }
-
-  // Bi-Weekly logic stays the same
-  return data.raw.map(item => ({
-    value: item.score,
-    label: new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-  }));
-}, [filter, data.raw, data.currentScore]);
-
-  return { 
-    ...data, 
-    loading, 
-    filter, 
-    setFilter, 
-    chartData, 
-    refresh: loadProgressData 
-  };
+  return { ...data, loading, filter, setFilter, chartData, refresh: loadProgressData };
 };

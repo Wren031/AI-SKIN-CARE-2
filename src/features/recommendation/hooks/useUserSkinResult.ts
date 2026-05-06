@@ -1,81 +1,94 @@
-import { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { userSkinResultService } from "../services/userSkinResultService";
 import { UsersSkinResult } from "../types/UsersSkinResult";
 
-export const useUserSkinResult = () => {
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const createReport = async (analysis: UsersSkinResult) => {
+export const userSkinResultService = {
+  
+  /**
+   * 1. UPLOAD IMAGE TO STORAGE
+   * Uploads local file to 'skin-scans' bucket and returns Public URL
+   */
+  async uploadSkinImage(userId: string, imageUri: string) {
     try {
-      setIsSaving(true);
-      setError(null);
+      const fileExt = imageUri.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageUri,
+        name: fileName,
+        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+      } as any);
 
-      if (authError || !user) {
-        throw new Error("User authentication required to save results.");
-      }
+      const { error: uploadError } = await supabase.storage
+        .from('skin-scans') // Ensure this bucket is created in Supabase & marked PUBLIC
+        .upload(filePath, formData);
 
-      const result = await userSkinResultService.createUserSkinResult(
-        user.id,
-        analysis
-      );
+      if (uploadError) throw uploadError;
 
-      return result;
-    } catch (err: any) {
-      const message = err.message || "Failed to save report";
-      console.error("Error saving report:", err);
-      setError(message);
+      const { data } = supabase.storage
+        .from('skin-scans')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Storage Upload Error:", error);
       return null;
-    } finally {
-      setIsSaving(false);
     }
-  };
+  },
 
-  const fetchUserHistory = async (profileId: any) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  /**
+   * 2. CREATE DATABASE RECORD
+   */
+  async createUserSkinResult(profileId: string, analysis: UsersSkinResult) {
+    const { data, error } = await supabase
+      .from('tbl_users_skin_result')
+      .insert([{
+        score: analysis.score,
+        confidence: analysis.confidence,
+        skin_type: analysis.skinType,
+        overall_severity: analysis.severity, 
+        image_url: analysis.imageUri, // This will be the HTTPS URL
+        profile_id: profileId
+      }])
+      .select()
+      .single();
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+    if (error) throw error;
 
-      // FIX: Call the service function and pass user.id
-      const history = await userSkinResultService.getUserSkinHistory(user.id);
-      return history;
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch history");
-      return [];
-    } finally {
-      setIsLoading(false);
+    // Save individual condition detections
+    if (analysis.detections && analysis.detections.length > 0) {
+      const conditions = analysis.detections.map((det) => ({
+        skin_result_id: data.id,
+        label: det.label,
+        severity: det.severity,
+        impact: det.impact
+      }));
+
+      const { error: condErr } = await supabase
+        .from('tbl_users_skin_result_condition')
+        .insert(conditions);
+
+      if (condErr) throw condErr;
     }
-  };
 
-  // --- DELETE ---
-  const removeReport = async (resultId: string) => {
-    try {
-      setIsSaving(true);
-      setError(null);
+    return data;
+  },
 
-      await userSkinResultService.deleteSkinResult(resultId);
-      return true;
-    } catch (err: any) {
-      setError(err.message || "Failed to delete report");
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  /**
+   * 3. GET HISTORY
+   */
+  async getUserSkinHistory(profileId: string) {
+    const { data, error } = await supabase
+      .from('tbl_users_skin_result')
+      .select(`
+        *,
+        tbl_users_skin_result_condition (*)
+      `)
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false });
 
-  return {
-    createReport,
-    fetchUserHistory,
-    removeReport,
-    isSaving,
-    isLoading,
-    error,
-  };
+    if (error) throw error;
+    return data;
+  }
 };

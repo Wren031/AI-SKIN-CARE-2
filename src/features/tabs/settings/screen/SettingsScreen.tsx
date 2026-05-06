@@ -1,6 +1,3 @@
-import { THEMES } from '@/src/constants/themes';
-import { useAuth } from '@/src/features/auth/hooks/useAuth';
-import { useProfileData } from '@/src/features/auth/hooks/useProfileData';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -10,18 +7,23 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+// Internal Imports
+import { THEMES } from '@/src/constants/themes';
+import { useAuth } from '@/src/features/auth/hooks/useAuth';
+import { useProfileData } from '@/src/features/auth/hooks/useProfileData';
 import SettingItem from '../components/SettingItem';
 
-const SKIN_THEME = THEMES.DERMA_AI;
-const { COLORS, RADIUS, SHADOWS } = SKIN_THEME;
+const { COLORS, RADIUS, SHADOWS } = THEMES.DERMA_AI;
 
 // --- Interfaces ---
 interface SettingData {
@@ -117,7 +119,7 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <ActivityIndicator size="small" color={COLORS.PRIMARY} />
       </View>
     );
   }
@@ -125,14 +127,22 @@ export default function SettingsScreen() {
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Clinical User';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         
-        {/* Header - Matching Recommendation Screen Style */}
+        {/* HEADER - Aligned with other screens */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>SETTINGS</Text>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.subtitle}>SYSTEM CONFIGURATION</Text>
+              <Text style={styles.title}>Settings</Text>
+            </View>
+          </View>
+
+          {/* Search Bar - Unified Surface Style */}
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color={COLORS.TEXT_SECONDARY} />
+            <Ionicons name="search-outline" size={18} color={COLORS.TEXT_SECONDARY} />
             <TextInput
               placeholder="Search preferences..."
               placeholderTextColor={COLORS.TEXT_SECONDARY}
@@ -140,6 +150,7 @@ export default function SettingsScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               clearButtonMode="while-editing"
+              selectionColor={COLORS.PRIMARY}
             />
           </View>
         </View>
@@ -159,7 +170,7 @@ export default function SettingsScreen() {
               />
               <View style={styles.profileInfo}>
                 <Text style={styles.profileName}>{fullName}</Text>
-                <Text style={styles.profileEmail}>{profile?.email || 'Verified Patient'}</Text>
+                <Text style={styles.profileEmail}>{profile?.email || 'Verified Account'}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={COLORS.PRIMARY} />
             </TouchableOpacity>
@@ -203,7 +214,8 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           )}
           
-          <Text style={styles.versionText}>DERMA AI SYSTEM v1.0.4 • ENCRYPTED</Text>
+          <Text style={styles.versionText}>DERMA AI SYSTEM v1.0.4 • SECURE PROTOCOL</Text>
+          <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -214,78 +226,69 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.BACKGROUND },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.BACKGROUND },
   
-  header: { 
-    paddingHorizontal: 20, 
-    paddingTop: 10, 
-    paddingBottom: 20, 
-    backgroundColor: COLORS.WHITE,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-    ...SHADOWS.SOFT
-  },
-  headerTitle: { 
-    fontSize: 12, 
-    fontWeight: '900', 
-    color: COLORS.TEXT_PRIMARY, 
-    letterSpacing: 3, 
-    textAlign: 'center',
-    marginBottom: 15
-  },
+  // Header matching App Theme
+  header: { paddingHorizontal: 20, paddingTop: 12, marginBottom: 15 },
+  headerContent: { marginBottom: 20 },
+  subtitle: { fontSize: 10, color: COLORS.TEXT_SECONDARY, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  title: { fontSize: 28, fontWeight: '800', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5, marginTop: 2 },
+
   searchBar: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: COLORS.BACKGROUND, 
-    paddingHorizontal: 15, 
-    height: 50, 
-    borderRadius: RADIUS.M, 
+    backgroundColor: COLORS.WHITE, 
+    paddingHorizontal: 16, 
+    height: 52, 
+    borderRadius: RADIUS.S, 
     borderWidth: 1, 
-    borderColor: COLORS.BORDER 
+    borderColor: COLORS.BORDER,
+    ...SHADOWS.SOFT
   },
-  searchInput: { flex: 1, fontSize: 14, marginLeft: 10, color: COLORS.TEXT_PRIMARY, fontWeight: '600' },
+  searchInput: { flex: 1, fontSize: 15, marginLeft: 10, color: COLORS.TEXT_PRIMARY, fontWeight: '600' },
   
-  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 60 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 60 },
   
   profileCard: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: COLORS.WHITE, 
     padding: 20, 
-    borderRadius: RADIUS.L, 
+    borderRadius: RADIUS.M, 
     marginBottom: 25,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
     ...SHADOWS.SOFT
   },
-  avatar: { width: 60, height: 60, borderRadius: RADIUS.M, backgroundColor: COLORS.BACKGROUND, borderWidth: 2, borderColor: COLORS.PRIMARY },
+  avatar: { width: 56, height: 56, borderRadius: 16, backgroundColor: COLORS.INPUT_BG, borderWidth: 1, borderColor: COLORS.BORDER },
   profileInfo: { flex: 1, marginLeft: 15 },
-  profileName: { fontSize: 18, fontWeight: '900', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5 },
-  profileEmail: { fontSize: 12, color: COLORS.TEXT_SECONDARY, marginTop: 2, fontWeight: '700' },
+  profileName: { fontSize: 18, fontWeight: '800', color: COLORS.TEXT_PRIMARY, letterSpacing: -0.5 },
+  profileEmail: { fontSize: 13, color: COLORS.TEXT_SECONDARY, marginTop: 2, fontWeight: '600' },
   
   sectionLabel: { 
-    fontSize: 10, fontWeight: '900', color: COLORS.TEXT_SECONDARY, 
-    textTransform: 'uppercase', marginBottom: 12, marginLeft: 4, letterSpacing: 1.5 
+    fontSize: 10, fontWeight: '800', color: COLORS.TEXT_SECONDARY, 
+    textTransform: 'uppercase', marginBottom: 12, marginLeft: 4, letterSpacing: 1 
   },
   group: { 
     backgroundColor: COLORS.WHITE, borderRadius: RADIUS.M, 
-    paddingHorizontal: 15, marginBottom: 25, borderWidth: 1, borderColor: COLORS.BORDER
+    paddingHorizontal: 16, marginBottom: 25, borderWidth: 1, borderColor: COLORS.BORDER,
+    ...SHADOWS.SOFT
   },
   
   logoutBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center',
-    backgroundColor: COLORS.WHITE,
+    backgroundColor: '#FFF5F5',
     padding: 18, 
     borderRadius: RADIUS.M,
     borderWidth: 1,
-    borderColor: '#FF3B30',
+    borderColor: '#FFE0E0',
     gap: 12,
     marginTop: 10
   },
-  logoutText: { fontSize: 13, fontWeight: '900', color: '#FF3B30', letterSpacing: 1 },
+  logoutText: { fontSize: 13, fontWeight: '800', color: '#FF3B30', letterSpacing: 1 },
   
   versionText: { 
-    textAlign: 'center', color: COLORS.TEXT_SECONDARY, fontSize: 9, 
-    marginTop: 30, fontWeight: '800', letterSpacing: 1 
+    textAlign: 'center', color: COLORS.TEXT_SECONDARY, fontSize: 10, 
+    marginTop: 30, fontWeight: '700', letterSpacing: 0.5 
   }
 });

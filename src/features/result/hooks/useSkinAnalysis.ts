@@ -44,13 +44,17 @@ export const useSkinAnalysis = () => {
   const handleShowRecommendations = async () => {
       try {
         setIsSaving(true);
+        
+        // FIX: Ensure ALL analysis data is passed to the next screen
         router.push({
           pathname: '/recommendation' as any, 
           params: { 
             detections: JSON.stringify(analysis.detections),
             skinType: analysis.skinType,
             score: analysis.score.toString(),
+            confidence: analysis.confidence.toString(), // Added: passing confidence
             severity: analysis.severity,
+            imageUri: analysis.imageUri, // Added: passing the image path
             skin_result_id: 'temp_preview_id', 
           },
         });

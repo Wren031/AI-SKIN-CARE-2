@@ -138,7 +138,7 @@ export default function CameraScreen() {
 
       await runScanAnimation();
 
-      const response = await fetch('http://172.20.10.2:5001/detect', {
+      const response = await fetch('http://192.168.8.40:5001/detect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

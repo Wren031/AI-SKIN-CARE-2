@@ -27,7 +27,9 @@ const getRoutineDetails = (usage: string = "") => {
 
 export const ProductCard = ({ item }: { item: any }) => {
   const [expanded, setExpanded] = useState(false);
-  const routine = getRoutineDetails(item.product?.usage);
+  
+  // FIX: Accessing directly from item because parent passes 'item.product'
+  const routine = getRoutineDetails(item?.usage);
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -42,13 +44,13 @@ export const ProductCard = ({ item }: { item: any }) => {
     >
       <View style={styles.regimenMain}>
         <Image 
-          source={{ uri: item.product?.image_url || 'https://via.placeholder.com/150' }} 
+          source={{ uri: item?.image_url || 'https://via.placeholder.com/150' }} 
           style={styles.regimenImg} 
         />
         
         <View style={{ flex: 1 }}>
           <Text style={styles.regimenName} numberOfLines={1}>
-            {item.product?.product_name}
+            {item?.product_name || 'Unnamed Product'}
           </Text>
 
           <View style={styles.regimenMeta}>
@@ -58,7 +60,7 @@ export const ProductCard = ({ item }: { item: any }) => {
             </View>
 
             {expanded && (
-              <Text style={styles.regimenPrice}>₱{item.product?.price || 0}</Text>
+              <Text style={styles.regimenPrice}>₱{item?.price || 0}</Text>
             )}
           </View>
         </View>
@@ -73,7 +75,7 @@ export const ProductCard = ({ item }: { item: any }) => {
       {expanded && (
         <View style={styles.instructionBox}>
           <Text style={styles.instructionHeader}>How to use:</Text>
-          <Text style={styles.instructionText}>{item.product?.instructions}</Text>
+          <Text style={styles.instructionText}>{item?.instructions || 'No instructions provided.'}</Text>
         </View>
       )}
     </TouchableOpacity>

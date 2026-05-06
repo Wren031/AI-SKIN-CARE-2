@@ -8,15 +8,15 @@ export const LifestyleCard = ({ item }: { item: any }) => (
   <View style={styles.lifestyleCard}>
     <View style={styles.lifestyleContent}>
       <View style={styles.lifestyleHeaderRow}>
-        <Text style={styles.lifestyleCategory}>{item.lifestyle?.category || 'TIP'}</Text>
+        {/* FIX: Accessing properties directly from item */}
+        <Text style={styles.lifestyleCategory}>{item?.category || 'TIP'}</Text>
         <View style={styles.dotSeparator} />
-        <Text style={styles.lifestyleTitle}>{item.lifestyle?.title}</Text>
+        <Text style={styles.lifestyleTitle}>{item?.title || 'Daily Tip'}</Text>
       </View>
-      <Text style={styles.lifestyleDesc}>{item.lifestyle?.description}</Text>
+      <Text style={styles.lifestyleDesc}>{item?.description || 'No description available.'}</Text>
     </View>
   </View>
 );
-
 const styles = StyleSheet.create({
   lifestyleCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#F1F5F9' },
   lifestyleContent: { flex: 1 },
